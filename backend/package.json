@@ -1,0 +1,51 @@
+{
+  "name": "express-postgres-starter",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Starter project using Express and Postgres",
+  "main": "config.js",
+  "scripts": {
+    "test": "xo",
+    "lint": "xo",
+    "format": "xo --fix",
+    "start": "node ./bin/start.js",
+    "dev": "nodemon ./bin/start.js",
+    "migrate": "node ./bin/migrate.js",
+    "migrate:create": "migrate create --migrations-dir='./src/migrations'"
+  },
+  "keywords": [
+    "express",
+    "postgres"
+  ],
+  "author": "Hugo Di Francesco",
+  "license": "MIT",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "helmet": "^4.6.0",
+    "jsonwebtoken": "^9.0.2",
+    "migrate": "^1.7.0",
+    "morgan": "^1.10.0",
+    "multer": "^2.0.2",
+    "pg": "^8.7.1",
+    "sql-template-strings": "^2.2.2",
+    "uuid": "^8.3.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.12",
+    "xo": "^0.36.1"
+  },
+  "xo": {
+    "prettier": true,
+    "space": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HugoDF/express-postgres-starter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/HugoDF/express-postgres-starter/issues"
+  },
+  "homepage": "https://github.com/HugoDF/express-postgres-starter#readme"
+}
