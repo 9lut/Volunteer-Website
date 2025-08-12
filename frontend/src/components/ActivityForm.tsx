@@ -14,7 +14,7 @@ type Form = {
       start_date?: string;
       end_date?: string;
       location?: string;
-      club_id?: number | null; // admin เท่านั้น
+      club_id?: number | null; // admin เท่านั้น (president จะผูกตามชมรมตนเองอัตโนมัติ)
 
 };
 

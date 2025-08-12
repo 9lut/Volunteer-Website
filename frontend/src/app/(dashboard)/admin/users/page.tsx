@@ -58,18 +58,18 @@ export default function AdminUsers() {
     name: string;
     email: string;
     role: UserRow['role'];
-    clubId: string;             // 'none' หรือ club id (string)
-    autoPassword: boolean;
     password: string;
+    autoPassword: boolean;
     active: boolean;
+    clubId: string; // 'none' or club id string (required when role is president)
   }>({
     name: '',
     email: '',
     role: 'student',
-    clubId: 'none',
-    autoPassword: true,
     password: randomPassword(),
+    autoPassword: true,
     active: true,
+    clubId: 'none',
   });
 
   // Reset password modal (show temp password returned)
@@ -127,12 +127,13 @@ export default function AdminUsers() {
   };
 
   const submitCreate = async () => {
-    // ตรวจสอบเบื้องต้น
     if (!createForm.email.trim()) return alert('กรุณากรอกอีเมล');
     if (!createForm.autoPassword && !createForm.password.trim()) return alert('กรุณากรอกรหัสผ่าน');
-
-    setCreateSaving(true);
+    if (createForm.role === 'president' && (!createForm.clubId || createForm.clubId === 'none')) {
+      return alert('กรุณาเลือกชมรมสำหรับประธานชมรม (เลือกได้ 1 ชมรม)');
+    }
     try {
+      setCreateSaving(true);
       const payload: any = {
         name: createForm.name || null,
         email: createForm.email,
@@ -142,24 +143,22 @@ export default function AdminUsers() {
         club_id: createForm.clubId !== 'none' ? Number(createForm.clubId) : null,
       };
       await api.post('/api/users', payload);
-      await mutate();
       setCreateOpen(false);
-      // reset form
+      setCreateSaving(false);
       setCreateForm({
         name: '',
         email: '',
         role: 'student',
-        clubId: 'none',
-        autoPassword: true,
         password: randomPassword(),
+        autoPassword: true,
         active: true,
+        clubId: 'none',
       });
+      await mutate();
     } catch (e: any) {
-      // eslint-disable-next-line no-console
+      setCreateSaving(false);
       console.error('create user failed:', e?.response?.status, e?.response?.data || e?.message);
       alert(e?.response?.data?.message || 'สร้างผู้ใช้ไม่สำเร็จ');
-    } finally {
-      setCreateSaving(false);
     }
   };
 
@@ -713,7 +712,7 @@ export default function AdminUsers() {
                 </Select>
               </div>
               <div>
-                <Label>ชมรม (ออปชัน)</Label>
+                <Label>ชมรม {createForm.role === 'president' ? '(จำเป็นต้องเลือก 1 ชมรม)' : '(ออปชัน)'}</Label>
                 <Select value={createForm.clubId} onValueChange={(v) => setCreateForm(s => ({ ...s, clubId: v }))}>
                   <SelectTrigger className="rounded-xl"><SelectValue placeholder="ไม่ระบุ" /></SelectTrigger>
                   <SelectContent>

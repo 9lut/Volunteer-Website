@@ -5,11 +5,12 @@ const Users = require('../persistence/users');
 const authorize = require('../middlewares/authorize');
 const Reg = require('../persistence/registrations');
 const { requireAuth } = require('../middlewares/auth');
+const ClubMembers = require('../persistence/club_members');
 
 // สร้างผู้ใช้ใหม่ (admin เท่านั้น)
 router.post('/', authorize(['admin']), async (req, res) => {
   try {
-    let { email, password, role, name } = req.body || {};
+    let { email, password, role, name, club_id } = req.body || {};
     if (!email || !password) {
       return res.status(400).json({ message: 'email and password must be provided' });
     }
@@ -36,6 +37,16 @@ router.post('/', authorize(['admin']), async (req, res) => {
       role: userRole,
       name: name ? String(name).trim() : null,
     });
+
+    // ถ้าสร้างเป็นประธานชมรม และระบุ club_id ให้กำหนดเป็นประธานใน club_members
+    const clubIdNum = club_id == null || club_id === '' ? null : Number(club_id);
+    if (userRole === 'president' && Number.isFinite(clubIdNum)) {
+      try {
+        await ClubMembers.addMember(clubIdNum, newUser.id, 'president');
+      } catch (e) {
+        console.warn('assign president failed:', e.message);
+      }
+    }
 
     return res.status(201).json({
       id: newUser.id,
