@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { useActivities } from '@/hooks/useActivities';
 import ActivityCard from '@/components/ActivityCard';
+import type { Activity } from '@/types/activity';
 
-type AnyActivity = Record<string, any>;
+type AnyActivity = Activity & Record<string, any>;
 const PER_PAGE = 9;
 
-export default function ActivitiesSearchPage() {
+function ActivitiesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -181,5 +182,13 @@ export default function ActivitiesSearchPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+export default function ActivitiesSearchPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[60vh] grid place-items-center">กำลังโหลด…</div>}>
+      <ActivitiesContent />
+    </Suspense>
   );
 }

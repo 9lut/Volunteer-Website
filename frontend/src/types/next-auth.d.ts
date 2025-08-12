@@ -9,6 +9,7 @@ declare module 'next-auth' {
       name?: string | null;
     } & DefaultSession['user'];
     backendToken?: string;
+    backendExp?: number;
   }
 }
 
@@ -21,6 +22,7 @@ declare module 'next-auth/jwt' {
       name?: string | null;
     };
     backendToken?: string;
+    backendExp?: number;
   }
 }
 

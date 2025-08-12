@@ -6,5 +6,5 @@ export const useAuth = () => {
     user: (data as any)?.user,
     backendToken: (data as any)?.backendToken as string | undefined,
     signIn, signOut,
-  };
+  } as const;
 };

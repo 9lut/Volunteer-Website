@@ -19,7 +19,7 @@ export const authOptions: NextAuthOptions = {
             email: creds?.email,
             password: creds?.password,
           }); // backend ตอบ { token, user }
-          return { ...data.user, backendToken: data.token };
+          return { ...data.user, backendToken: data.token } as any;
         } catch {
           return null;
         }
@@ -47,7 +47,7 @@ export const authOptions: NextAuthOptions = {
           name: (user as any).name,
         };
       }
-      return token;
+      return token as any;
     },
     async session({ session, token }) {
       (session as any).user = (token as any).user;
@@ -55,9 +55,7 @@ export const authOptions: NextAuthOptions = {
       (session as any).backendExp = (token as any).backendExp;
       return session;
     },
-    // ป้องกัน open redirect และไม่บังคับ /dashboard
     async redirect({ url, baseUrl }) {
-      // อนุญาตเฉพาะภายในโดเมนเดียวกัน
       if (url.startsWith(baseUrl)) return url;
       if (url.startsWith('/')) return `${baseUrl}${url}`;
       return baseUrl;

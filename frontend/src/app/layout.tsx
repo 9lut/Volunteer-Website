@@ -18,7 +18,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="th">
-      <body className={`${kanit.className} text-gray-900`}>{children}</body>
+      <body className={`${kanit.className} text-gray-900`}>
+        {children}
+      </body>
     </html>
   );
 }

@@ -25,11 +25,11 @@ export default withAuth(
     // มี token แล้ว → ตรวจหมดอายุของ backend JWT (ถ้ามี)
     if (token) {
       const leewayMs = 5_000;
-      let backendExpMs: number | undefined = token.backendExp;
+      let backendExpMs: number | undefined = (token as any).backendExp;
 
-      if (!backendExpMs && token.backendToken) {
+      if (!backendExpMs && (token as any).backendToken) {
         try {
-          const payload: any = decodeJwt(token.backendToken as string);
+          const payload: any = decodeJwt((token as any).backendToken as string);
           backendExpMs = payload?.exp ? payload.exp * 1000 : undefined;
         } catch {
           const login = new URL('/login', origin);
@@ -45,7 +45,7 @@ export default withAuth(
       }
 
       // บทบาท
-      const role = token.user?.role as 'admin' | 'president' | 'student' | undefined;
+      const role = (token as any).user?.role as 'admin' | 'president' | 'student' | undefined;
 
       // ❌ student ห้ามเข้าทั้ง /dashboard และ /admin → เด้งกลับ /
       if ((isDashboard || isAdminZone) && role === 'student') {

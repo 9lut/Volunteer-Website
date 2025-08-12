@@ -17,6 +17,7 @@
     "@radix-ui/react-switch": "^1.2.5",
     "axios": "^1.11.0",
     "class-variance-authority": "^0.7.1",
+    "jose": "^5.10.0",
     "lucide-react": "^0.539.0",
     "motion": "^12.23.12",
     "next": "15.4.6",

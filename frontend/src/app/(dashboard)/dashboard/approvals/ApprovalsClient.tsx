@@ -16,6 +16,19 @@ import {
 type Range = 'all' | 'today' | 'week';
 type SortBy = 'submitted' | 'start';
 
+type PendingActivity = {
+  id: number;
+  title?: string;
+  location?: string;
+  status?: string;
+  start_date?: string;
+  startDate?: string;
+  created_at?: string;
+  createdAt?: string;
+  updated_at?: string;
+  updatedAt?: string;
+};
+
 export default function ApprovalsClient() {
   const { activities: pending = [], isLoading, error, mutate } = useActivities('pending');
 
@@ -69,7 +82,7 @@ export default function ApprovalsClient() {
     const s = q.trim().toLowerCase();
     const now = new Date();
 
-    const filtered = pending.filter((a) => {
+    const filtered = (pending as PendingActivity[]).filter((a: PendingActivity) => {
       const title = (a.title || '').toLowerCase();
       const loc = (a.location || '').toLowerCase();
       const okQ = !s || title.includes(s) || loc.includes(s);
@@ -88,7 +101,7 @@ export default function ApprovalsClient() {
       return okQ;
     });
 
-    const sorted = [...filtered].sort((a, b) => {
+    const sorted = [...filtered].sort((a: PendingActivity, b: PendingActivity) => {
       const aDate =
         sortBy === 'start'
           ? get(a, 'start_date', 'startDate') || get(a, 'created_at', 'createdAt')
@@ -96,7 +109,7 @@ export default function ApprovalsClient() {
       const bDate =
         sortBy === 'start'
           ? get(b, 'start_date', 'startDate') || get(b, 'created_at', 'createdAt')
-          : get(b, 'updated_at', 'updatedAt') || get(b, 'created_at', 'createdAt');
+          : get(b, 'updated_at', 'updatedAt') || get(b, 'created_at', 'CreatedAt');
       const da = aDate ? new Date(aDate).getTime() : 0;
       const db = bDate ? new Date(bDate).getTime() : 0;
       // submitted = ใหม่สุดก่อน, start = ใกล้เริ่มก่อน
