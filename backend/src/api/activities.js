@@ -130,7 +130,10 @@ router.get('/', optionalAuth, async (req, res) => {
     let clubFilter = null;
     if (isPresident(req.user)) {
       const clubIds = await ClubMembers.findClubIdsOfPresident(req.user.id);
-      clubFilter = clubIds.length ? clubIds : null;
+      if (!clubIds || clubIds.length === 0) {
+        return res.json([]); // ประธานที่ยังไม่ได้ผูกชมรม → ไม่เห็นกิจกรรมใด ๆ
+      }
+      clubFilter = clubIds;
     }
 
     const list = await Activity.findAll({
