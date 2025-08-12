@@ -471,4 +471,40 @@ router.get('/:id/registrations', requireAuth, authorize(['admin','president']), 
   }
 });
 
+// รายชื่อผู้สมัครของกิจกรรม (CSV)
+router.get('/:id/registrations.csv', requireAuth, authorize(['admin','president']), async (req, res) => {
+  try {
+    const id = toInt(req.params.id);
+    if (Number.isNaN(id)) return res.status(400).send('Invalid id');
+
+    const activity = await Activity.findById(id);
+    if (!activity) return res.status(404).send('Activity not found');
+
+    if (req.user.role === 'president') {
+      if (!activity.club_id || !req.user.id || !(await ClubMembers.isPresidentOfClub(req.user.id, activity.club_id))) {
+        return res.status(403).send('Forbidden');
+      }
+    }
+
+    const rows = await Reg.listByActivityWithUsers(id);
+    const header = ['id', 'user_id', 'email', 'name', 'role', 'registered_at'];
+    const lines = [header.join(',')];
+    for (const r of rows) {
+      const vals = [r.id, r.user_id, r.email || '', r.name || '', r.role || '', r.created_at].map((v) => {
+        const s = String(v ?? '');
+        return s.includes(',') || s.includes('"') ? '"' + s.replace(/"/g, '""') + '"' : s;
+      });
+      lines.push(vals.join(','));
+    }
+    const csv = lines.join('\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="registrations_${id}.csv"`);
+    return res.status(200).send(csv);
+  } catch (e) {
+    console.error('GET /api/activities/:id/registrations.csv error:', e);
+    return res.status(500).send('Failed to export');
+  }
+});
+
 module.exports = router;

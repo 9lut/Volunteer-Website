@@ -769,6 +769,15 @@ export default function ActivitiesPage() {
             <div className="py-6 text-center text-sm text-gray-500">ยังไม่มีผู้สมัคร</div>
           ) : (
             <div className="max-h-[60vh] overflow-auto">
+              <div className="flex justify-end mb-2">
+                <a
+                  href={`/api/activities/${regOf?.id}/registrations.csv`}
+                  target="_blank"
+                  className="text-sm px-3 py-1.5 rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                >
+                  ส่งออก CSV
+                </a>
+              </div>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-gray-500 border-b">
