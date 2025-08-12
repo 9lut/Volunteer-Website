@@ -69,8 +69,18 @@ router.post(
 
       // ผูก club_id:
       // - admin: ใช้ค่าที่ส่งมา (ถ้าไม่ส่งมาก็เป็น null ได้)
-      // - president: บังคับใช้ club_id ของตัวเองเท่านั้น
-      const club_id = isAdmin(req.user) ? (reqClubId ?? null) : (req.user.club_id ?? null);
+      // - president: กำหนดจากชมรมที่ตัวเองเป็นประธาน (ต้องมีและ 1 ชมรม)
+      let club_id = null;
+      if (isAdmin(req.user)) {
+        club_id = reqClubId ?? null;
+      } else if (isPresident(req.user)) {
+        const clubIds = await ClubMembers.findClubIdsOfPresident(req.user.id);
+        if (!clubIds || clubIds.length === 0) {
+          return res.status(400).json({ message: 'President has no club assigned' });
+        }
+        // สมมติว่าหนึ่งประธานต่อหนึ่งชมรมตาม requirement
+        club_id = clubIds[0];
+      }
 
       const activity = await Activity.create({
         title,
