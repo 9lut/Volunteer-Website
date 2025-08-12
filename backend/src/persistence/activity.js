@@ -81,7 +81,11 @@ async function findAll({ status = 'approved', limit = 0, sort = '', club_id = nu
     where.push(`status = $${params.length}::activity_status`);
   }
 
-  if (club_id) {
+  if (Array.isArray(club_id) && club_id.length > 0) {
+    const placeholders = club_id.map((_, i) => `$${params.length + i + 1}`).join(',');
+    params.push(...club_id);
+    where.push(`club_id IN (${placeholders})`);
+  } else if (club_id) {
     params.push(club_id);
     where.push(`club_id = $${params.length}`);
   }

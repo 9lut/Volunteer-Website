@@ -5,6 +5,7 @@ const router = new Router();
 const Activity = require('../persistence/activity');
 const Reg = require('../persistence/registrations');
 const Images = require('../persistence/activity_images');
+const ClubMembers = require('../persistence/club_members');
 
 const { requireAuth } = require('../middlewares/auth');
 const authorize = require('../middlewares/authorize');
@@ -27,11 +28,12 @@ function isPresident(user) {
 }
 
 /** ตรวจสิทธิ์ว่าจัดการ activity นี้ได้ไหม (admin = ได้ทั้งหมด, president = ได้เฉพาะชมรมตัวเอง) */
-function canManageActivity(activity, user) {
+async function canManageActivity(activity, user) {
   if (!user) return false;
   if (isAdmin(user)) return true;
   if (isPresident(user)) {
-    return activity?.club_id && user?.club_id && activity.club_id === user.club_id;
+    if (!activity?.club_id) return false;
+    return await ClubMembers.isPresidentOfClub(user.id, activity.club_id);
   }
   return false;
 }
@@ -40,7 +42,7 @@ function canManageActivity(activity, user) {
 async function loadAndAuthorizeManage(id, user) {
   const activity = await Activity.findById(id);
   if (!activity) return { error: { code: 404, message: 'Activity not found' } };
-  if (!canManageActivity(activity, user)) {
+  if (!(await canManageActivity(activity, user))) {
     return { error: { code: 403, message: 'Forbidden' } };
   }
   return { activity };
@@ -114,8 +116,12 @@ router.get('/', optionalAuth, async (req, res) => {
     const sort = String(req.query.sort || '');
 
     // กรณี admin: เห็นทั้งหมด (ไม่กรองชมรม)
-    // กรณี president: กรองเฉพาะ club_id ของตัวเองเสมอ
-    const clubFilter = isPresident(req.user) ? (req.user.club_id ?? null) : null;
+    // กรณี president: กรองเฉพาะ club_id ของตัวเองเสมอ (รองรับหลายชมรม)
+    let clubFilter = null;
+    if (isPresident(req.user)) {
+      const clubIds = await ClubMembers.findClubIdsOfPresident(req.user.id);
+      clubFilter = clubIds.length ? clubIds : null;
+    }
 
     const list = await Activity.findAll({
       status,

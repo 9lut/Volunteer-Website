@@ -190,4 +190,20 @@ router.delete('/:id/members/:userId', requireAuth, authorize(['admin']), async (
   }
 });
 
+router.get('/me/president', requireAuth, authorize(['admin','president']), async (req, res) => {
+  try {
+    if (req.user.role === 'admin') {
+      const list = await Clubs.findAll({ includeMembers: false });
+      return res.json(list);
+    }
+    const clubIds = await ClubMembers.findClubIdsOfPresident(req.user.id);
+    if (clubIds.length === 0) return res.json([]);
+    const list = await Clubs.findByIds(clubIds, { includeMembers: false });
+    return res.json(list);
+  } catch (e) {
+    console.error('GET /api/clubs/me/president error:', e);
+    return res.status(500).json({ message: 'Failed to get my clubs' });
+  }
+});
+
 module.exports = router;
