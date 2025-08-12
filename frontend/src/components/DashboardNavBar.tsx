@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
-import { canApproveActivity, canManageUsers } from '@/lib/roles';
+import { canApproveActivity, canManageUsers, canManageActivities, canManageClubs } from '@/lib/roles';
 import { usePathname } from 'next/navigation';
 import { useMemo, useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react';
 
@@ -11,6 +11,8 @@ export default function DashboardNavBar() {
   const pathname = usePathname();
   const isAdmin = canManageUsers(user?.role);
   const canApprove = canApproveActivity(user?.role);
+  const canManageActs = canManageActivities(user?.role);
+  const canManageCls = canManageClubs(user?.role);
 
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -87,7 +89,7 @@ export default function DashboardNavBar() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3M5 11h14M5 19h14a2 2 0 002-2v-6H3v6a2 2 0 002 2z" />
           </svg>
         ),
-        show: canApprove,
+        show: canManageActs,
       },
       {
         href: '/dashboard/clubs',
@@ -97,7 +99,7 @@ export default function DashboardNavBar() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-1a6 6 0 00-9-5.197M9 20H4v-1a6 6 0 0112 0v1M12 12a4 4 0 100-8 4 4 0 000 8z" />
           </svg>
         ),
-        show: isAdmin || canApprove,
+        show: canManageCls,
       },
       {
         href: '/admin/users',
@@ -120,7 +122,7 @@ export default function DashboardNavBar() {
         show: isAdmin,
       },
     ],
-    [isAdmin, canApprove]
+    [isAdmin, canApprove, canManageActs, canManageCls]
   );
 
   const visibleItems = items.filter((i) => i.show);
