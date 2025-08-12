@@ -3,15 +3,12 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
-import { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { decodeJwt } from 'jose';
+import { Suspense, useState } from 'react';
+import { signIn, getSession } from 'next-auth/react';
 
 function LoginContent() {
   const router = useRouter();
   const sp = useSearchParams();
-  const { signIn } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,23 +34,15 @@ function LoginContent() {
     }
 
     setLoading(true);
-    const res = await signIn(email, password);
-    if (!res.ok) {
+    const res = await signIn('credentials', { email, password, redirect: false });
+    if (!res || res.error) {
       setLoading(false);
-      setErr(res.error || 'เข้าสู่ระบบไม่สำเร็จ');
+      setErr(res?.error || 'เข้าสู่ระบบไม่สำเร็จ');
       return;
     }
 
-    // Decode token from cookie for role routing
-    let role: 'admin' | 'president' | 'student' | undefined;
-    try {
-      const match = document.cookie.match(/(?:^|; )auth_token=([^;]*)/);
-      const token = match ? decodeURIComponent(match[1]) : undefined;
-      if (token) {
-        const payload: any = decodeJwt(token);
-        role = payload?.role as any;
-      }
-    } catch {}
+    const session = await getSession();
+    const role = (session as any)?.user?.role as 'admin' | 'president' | 'student' | undefined;
 
     const from = sp.get('callbackUrl');
     let next = '/';
