@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { toAbsoluteImageUrl } from '@/lib/helpers/url';
 import { CalendarDays, MapPin, Pencil, Trash2, Search, ImageIcon, Filter, XCircle } from 'lucide-react';
+import { Users } from 'lucide-react';
 
 type Activity = {
   id: number;
@@ -43,6 +44,8 @@ type ActivityImage = {
 };
 
 type Club = { id: number; name: string };
+
+type RegRow = { id: number; activity_id: number; user_id: string; created_at: string; email?: string|null; name?: string|null; role?: string };
 
 const fetcher = (url: string) => api.get(url).then(r => r.data);
 
@@ -87,6 +90,26 @@ export default function ActivitiesPage() {
   // delete confirm
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Activity | null>(null);
+
+  // registrations dialog
+  const [regOpen, setRegOpen] = useState(false);
+  const [regLoading, setRegLoading] = useState(false);
+  const [regRows, setRegRows] = useState<RegRow[]>([]);
+  const [regOf, setRegOf] = useState<Activity | null>(null);
+
+  async function openRegistrations(a: Activity) {
+    setRegOf(a);
+    setRegOpen(true);
+    setRegLoading(true);
+    try {
+      const rows: RegRow[] = await fetcher(`/api/activities/${a.id}/registrations`);
+      setRegRows(rows);
+    } catch {
+      setRegRows([]);
+    } finally {
+      setRegLoading(false);
+    }
+  }
 
   // list compute
   const filtered = useMemo(() => {
@@ -426,6 +449,14 @@ export default function ActivitiesPage() {
                         <Button
                           size="sm"
                           variant="outline"
+                          className="h-9 rounded-xl border-sky-200 text-sky-700 hover:bg-sky-50"
+                          onClick={() => openRegistrations(a)}
+                        >
+                          <Users className="w-4 h-4 mr-1.5" /> ผู้สมัคร
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
                           className="h-9 rounded-xl border-red-200 text-red-700 hover:bg-red-100"
                           onClick={() => askDelete(a)}
                         >
@@ -484,6 +515,9 @@ export default function ActivitiesPage() {
                         <div className="flex justify-end gap-2">
                           <Button size="sm" variant="outline" className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => openEdit(a)}>
                             <Pencil className="w-4 h-4 mr-1.5" /> แก้ไข
+                          </Button>
+                          <Button size="sm" variant="outline" className="rounded-xl border-sky-200 text-sky-700 hover:bg-sky-50" onClick={() => openRegistrations(a)}>
+                            <Users className="w-4 h-4 mr-1.5" /> ผู้สมัคร
                           </Button>
                           <Button size="sm" variant="outline" className="rounded-xl border-red-200 text-red-700 hover:bg-red-100" onClick={() => askDelete(a)}>
                             <Trash2 className="w-4 h-4 mr-1.5" /> ลบ
@@ -719,6 +753,46 @@ export default function ActivitiesPage() {
             <Button onClick={confirmDelete} className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white">
               ลบเลย
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Registrations */}
+      <Dialog open={regOpen} onOpenChange={setRegOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>ผู้สมัคร {regOf?.title ? `: ${regOf.title}` : ''}</DialogTitle>
+          </DialogHeader>
+          {regLoading ? (
+            <div className="py-10 text-center text-sm text-gray-500">กำลังโหลด…</div>
+          ) : regRows.length === 0 ? (
+            <div className="py-6 text-center text-sm text-gray-500">ยังไม่มีผู้สมัคร</div>
+          ) : (
+            <div className="max-h-[60vh] overflow-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-500 border-b">
+                    <th className="py-2 pr-3">อีเมล</th>
+                    <th className="py-2 pr-3">ชื่อ</th>
+                    <th className="py-2 pr-3">บทบาท</th>
+                    <th className="py-2 pr-3">สมัครเมื่อ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {regRows.map(r => (
+                    <tr key={r.id} className="border-b last:border-0">
+                      <td className="py-2 pr-3 font-medium text-gray-900">{r.email || r.user_id}</td>
+                      <td className="py-2 pr-3">{r.name || '-'}</td>
+                      <td className="py-2 pr-3">{r.role || '-'}</td>
+                      <td className="py-2 pr-3">{new Date(r.created_at).toLocaleString('th-TH')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setRegOpen(false)} variant="outline">ปิด</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

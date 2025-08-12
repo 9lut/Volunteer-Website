@@ -17,7 +17,7 @@ function normalizeEmail(email) {
  */
 async function find(email) {
   const { rows } = await query(
-    `SELECT id, email, password, role, name
+    `SELECT id, email, password, role, name, club_id
      FROM users
      WHERE email = $1
      LIMIT 1`,

@@ -7,6 +7,7 @@ declare module 'next-auth' {
       email: string;
       role: 'student' | 'president' | 'admin';
       name?: string | null;
+      club_id?: number | null;
     } & DefaultSession['user'];
     backendToken?: string;
     backendExp?: number;
@@ -20,6 +21,7 @@ declare module 'next-auth/jwt' {
       email: string;
       role: 'student' | 'president' | 'admin';
       name?: string | null;
+      club_id?: number | null;
     };
     backendToken?: string;
     backendExp?: number;

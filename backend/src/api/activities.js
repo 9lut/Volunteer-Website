@@ -410,7 +410,6 @@ router.post('/:id/register', requireAuth, authorize(['student', 'president', 'ad
   }
 });
 
-
 router.delete('/:id/register', requireAuth, authorize(['student', 'president', 'admin']), async (req, res) => {
   try {
     const id = toInt(req.params.id);
@@ -429,5 +428,28 @@ router.delete('/:id/register', requireAuth, authorize(['student', 'president', '
   }
 });
 
+// รายชื่อผู้สมัครของกิจกรรม (admin: ทั้งหมด, president: เฉพาะกิจกรรมในชมรมตัวเอง)
+router.get('/:id/registrations', requireAuth, authorize(['admin','president']), async (req, res) => {
+  try {
+    const id = toInt(req.params.id);
+    if (Number.isNaN(id)) return res.status(400).json({ message: 'Invalid id' });
+
+    const activity = await Activity.findById(id);
+    if (!activity) return res.status(404).json({ message: 'Activity not found' });
+
+    // president ต้องเป็นเจ้าของชมรมของ activity เท่านั้น
+    if (req.user.role === 'president') {
+      if (!activity.club_id || !req.user.club_id || activity.club_id !== req.user.club_id) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+    }
+
+    const rows = await Reg.listByActivityWithUsers(id);
+    return res.json(rows);
+  } catch (e) {
+    console.error('GET /api/activities/:id/registrations error:', e);
+    return res.status(500).json({ message: 'Failed to list registrations' });
+  }
+});
 
 module.exports = router;

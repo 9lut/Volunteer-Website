@@ -98,4 +98,18 @@ module.exports = {
     const { rows } = await db.query(q, [activity_id]);
     return rows;
   },
+
+  /** รายการของ activity พร้อมข้อมูลผู้ใช้ */
+  async listByActivityWithUsers(activity_id) {
+    const q = `
+      SELECT r.id, r.activity_id, r.user_id, r.created_at,
+             u.email, u.name, u.role
+      FROM registrations r
+      JOIN users u ON u.id = r.user_id
+      WHERE r.activity_id = $1
+      ORDER BY r.created_at DESC;
+    `;
+    const { rows } = await db.query(q, [activity_id]);
+    return rows;
+  },
 };
