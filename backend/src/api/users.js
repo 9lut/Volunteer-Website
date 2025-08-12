@@ -107,7 +107,7 @@ router.get('/me/registrations', requireAuth, authorize(['student','president','a
 router.patch('/:id/role', requireAuth, authorize(['admin']), async (req, res) => {
   try {
     const { id } = req.params;
-    const { role } = req.body || {};
+    const { role, club_id } = req.body || {};
     if (!role) return res.status(400).json({ message: 'role is required' });
 
     // กันเปลี่ยนบทบาทตัวเอง (กันล็อกตัวเอง)
@@ -117,6 +117,16 @@ router.patch('/:id/role', requireAuth, authorize(['admin']), async (req, res) =>
 
     const updated = await Users.updateRoleSafe(id, role);
     if (!updated) return res.status(404).json({ message: 'User not found' });
+
+    // ถ้าตั้งเป็นประธาน และส่ง club_id มา ให้กำหนดเป็นประธานของชมรมนั้น
+    const clubIdNum = club_id == null || club_id === '' ? null : Number(club_id);
+    if (role === 'president' && Number.isFinite(clubIdNum)) {
+      try {
+        await ClubMembers.addMember(clubIdNum, id, 'president');
+      } catch (e) {
+        console.warn('assign president (update role) failed:', e.message);
+      }
+    }
     return res.json(updated);
   } catch (e) {
     console.error('PATCH /api/users/:id/role error:', e);
