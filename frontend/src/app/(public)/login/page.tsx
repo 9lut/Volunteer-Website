@@ -1,14 +1,17 @@
 // src/app/login/page.tsx
 'use client';
 
-import { signIn, getSession } from 'next-auth/react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { decodeJwt } from 'jose';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const sp = useSearchParams();
+  const { signIn } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,12 +19,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // เส้นทางที่ห้ามตามบทบาท
   const isProtected = (p: string) => p.startsWith('/admin') || p.startsWith('/dashboard');
   const roleAllowsPath = (role: string | undefined, p: string) => {
     if (p.startsWith('/admin')) return role === 'admin';
     if (p.startsWith('/dashboard')) return role === 'admin' || role === 'president';
-    return true; // path อื่น ๆ เข้าได้ทุก role
+    return true;
   };
   const isSafeInternalPath = (p: string | null) => !!p && p.startsWith('/');
 
@@ -35,31 +37,35 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    const res = await signIn('credentials', { email, password, redirect: false });
-    if (!res || res.error) {
+    const res = await signIn(email, password);
+    if (!res.ok) {
       setLoading(false);
-      setErr(res?.error || 'เข้าสู่ระบบไม่สำเร็จ');
+      setErr(res.error || 'เข้าสู่ระบบไม่สำเร็จ');
       return;
     }
 
-    // ดึง session เพื่ออ่าน role
-    const session = await getSession();
-    const role = (session as any)?.user?.role as 'admin' | 'president' | 'student' | undefined;
+    // Decode token from cookie for role routing
+    let role: 'admin' | 'president' | 'student' | undefined;
+    try {
+      const match = document.cookie.match(/(?:^|; )auth_token=([^;]*)/);
+      const token = match ? decodeURIComponent(match[1]) : undefined;
+      if (token) {
+        const payload: any = decodeJwt(token);
+        role = payload?.role as any;
+      }
+    } catch {}
 
-    // พิจารณา callbackUrl จาก middleware (ถ้ามี)
     const from = sp.get('callbackUrl');
     let next = '/';
 
     if (isSafeInternalPath(from) && roleAllowsPath(role, from!)) {
       next = from!;
     } else {
-      // fallback ตาม role
       if (role === 'admin') next = '/admin';
       else if (role === 'president') next = '/dashboard';
-      else next = '/'; // student → ห้าม /dashboard และ /admin
+      else next = '/';
     }
 
-    // ป้องกันไม่ให้ student ไปหน้า protected ได้
     if (role === 'student' && isProtected(next)) {
       next = '/';
     }
@@ -170,5 +176,13 @@ export default function LoginPage() {
         <div className="py-4" />
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<main className="min-h-[60vh] grid place-items-center">กำลังโหลด…</main>}>
+      <LoginContent />
+    </Suspense>
   );
 }

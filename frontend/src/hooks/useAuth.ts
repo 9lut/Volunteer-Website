@@ -1,10 +1,6 @@
-import { useSession, signIn, signOut } from 'next-auth/react';
+import { useAuthContext } from '@/components/AuthProvider';
+
 export const useAuth = () => {
-  const { data, status } = useSession();
-  return {
-    status, session: data,
-    user: (data as any)?.user,
-    backendToken: (data as any)?.backendToken as string | undefined,
-    signIn, signOut,
-  };
+  const { status, user, backendToken, signIn, signOut } = useAuthContext();
+  return { status, session: user ? { user, backendToken } : undefined, user, backendToken, signIn, signOut } as const;
 };

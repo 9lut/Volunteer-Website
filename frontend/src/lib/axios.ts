@@ -1,35 +1,31 @@
 import axios from 'axios';
+import { getAuthTokenFromCookie, clearAuthTokenCookie } from './jwt';
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
   withCredentials: true,
 });
 
-// ใช้เฉพาะฝั่ง client
+// Client-side interceptors only
 if (typeof window !== 'undefined') {
-  (async () => {
-    const { getSession, signOut } = await import('next-auth/react');
+  api.interceptors.request.use(async (config) => {
+    const backendToken = getAuthTokenFromCookie() || undefined;
+    if (backendToken) {
+      config.headers = config.headers ?? {};
+      (config.headers as any).Authorization = `Bearer ${backendToken}`;
+    }
+    return config;
+  });
 
-    api.interceptors.request.use(async (config) => {
-      const session = await getSession();
-      const backendToken = (session as any)?.backendToken as string | undefined;
-      if (backendToken) {
-        config.headers = config.headers ?? {};
-        (config.headers as any).Authorization = `Bearer ${backendToken}`;
+  api.interceptors.response.use(
+    (res) => res,
+    async (error) => {
+      const status = error?.response?.status;
+      if (status === 401) {
+        clearAuthTokenCookie();
+        window.location.href = '/login';
       }
-      return config;
-    });
-
-    api.interceptors.response.use(
-      (res) => res,
-      async (error) => {
-        const status = error?.response?.status;
-        if (status === 401) {
-          // หมดอายุ/ไม่ถูกต้อง -> เด้งไป login
-          await signOut({ callbackUrl: '/login' });
-        }
-        return Promise.reject(error);
-      }
-    );
-  })();
+      return Promise.reject(error);
+    }
+  );
 }

@@ -1,5 +1,6 @@
 import "./globals.css";
 import { Kanit } from "next/font/google";
+import { AuthProvider } from '@/components/AuthProvider';
 
 export const metadata = {
   title: "Volunteer",
@@ -18,7 +19,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="th">
-      <body className={`${kanit.className} text-gray-900`}>{children}</body>
+      <body className={`${kanit.className} text-gray-900`}>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   );
 }
