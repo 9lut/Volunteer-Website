@@ -161,8 +161,27 @@ export default function Dashboard() {
         </div>
       </header>
 
+      {/* President quick guide */}
+      {user?.role === 'president' && (
+        <div className="px-4 sm:px-6 mt-4">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <p className="text-sm text-amber-900 font-medium">สำหรับประธานชมรม:</p>
+            <ul className="mt-1 text-sm text-amber-900/90 list-disc ml-5">
+              <li>ไปที่ “จัดการกิจกรรม” เพื่อดูและแก้ไขกิจกรรมของชมรมคุณ</li>
+              <li>ปุ่ม “ผู้สมัคร” จะแสดงรายชื่อผู้สมัครของกิจกรรมในชมรมคุณเท่านั้น</li>
+              <li>ไปที่ “สมาชิกชมรมของฉัน” เพื่อดูรายชื่อสมาชิก (ดูอย่างเดียว)</li>
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* Content */}
       <main className="px-4 sm:px-6 pb-24 md:pb-10 mt-4 md:mt-6 max-w-6xl mx-auto">
+        {user?.role === 'president' && stats.totalActivities === 0 && (
+          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
+            ยังไม่มีกิจกรรมของชมรมคุณ หากคุณเป็นประธานชมรมใหม่ กรุณาติดต่อผู้ดูแลระบบเพื่อผูกชมรม หรือสร้างกิจกรรมแรกของคุณที่ “จัดการกิจกรรม”
+          </div>
+        )}
         {/* Stats (1 col on mobile) */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <StatCard title="กิจกรรมทั้งหมด" value={stats.totalActivities} href="/dashboard/activities" />
