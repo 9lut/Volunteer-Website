@@ -403,12 +403,12 @@ router.post('/:id/register', requireAuth, authorize(['student', 'president', 'ad
 
     try {
       const reg = await Reg.create({ activity_id: id, user_id: req.user.id });
-      return res.status(201).json(reg);
-    } catch (err) {
-      if (err.code === 'ALREADY_REGISTERED') {
+      if (!reg) {
         return res.status(409).json({ message: 'คุณสมัครกิจกรรมนี้แล้ว' });
       }
-      throw err;
+      return res.status(201).json(reg);
+    } catch (err) {
+      return res.status(500).json({ message: 'Failed to register' });
     }
   } catch (e) {
     console.error('POST /api/activities/:id/register error:', e);

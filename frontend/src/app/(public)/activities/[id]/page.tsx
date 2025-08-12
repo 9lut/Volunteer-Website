@@ -42,7 +42,7 @@ export default function ActivityDetail() {
     );
   }
 
-  const myReg = regs.find(r => r.activity_id === id && r.status === 'registered');
+  const myReg = regs.find(r => r.activity_id === id);
   const isRegistered = !!myReg;
 
   const register = async () => {
