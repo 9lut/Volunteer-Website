@@ -8,7 +8,7 @@ const Reg = require('../persistence/registrations');
 // รายการที่ user คนปัจจุบันลงทะเบียนไว้
 router.get('/users/me/registrations', requireAuth, async (req, res) => {
   try {
-    const list = await Reg.listByUser(req.user.id);
+    const list = await Reg.listByUserWithActivity(req.user.id);
     return res.json(list);
   } catch (e) {
     console.error('GET /api/users/me/registrations error:', e);

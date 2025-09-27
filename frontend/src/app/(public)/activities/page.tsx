@@ -30,7 +30,7 @@ function ActivitiesContent() {
   const filtered = useMemo(() => {
     const term = q.toLowerCase();
     return activities.filter((a: AnyActivity) => {
-      const text = `${a?.title || a?.name || ''} ${a?.description || ''}`.toLowerCase();
+      const text = `${a?.name || ''} ${a?.description || ''}`.toLowerCase();
       return !term || text.includes(term);
     });
   }, [activities, q]);

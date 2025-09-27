@@ -6,172 +6,207 @@ import { Activity } from '@/types/activity';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, MapPin, Users, Clock, Eye, PlayCircle, Flag } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useMyRegistrations } from '@/hooks/useRegistrations';
+import { CalendarDays, MapPin, Users, Clock, Eye, PlayCircle, Flag, CheckCircle } from 'lucide-react';
 import { toAbsoluteImageUrl } from '@/lib/helpers/url';
 
 type Status = 'approved' | 'pending' | 'rejected' | 'completed' | string;
 
 function formatDate(dateString?: string | null) {
   if (!dateString) return '';
-  const d = new Date(dateString);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+  const date = new Date(dateString);
+  return date.toLocaleDateString('th-TH', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 }
 
-function getStatusStyle(status: Status) {
-  switch (status) {
-    case 'approved':
-      return 'bg-green-100 text-green-800 border-green-300';
-    case 'pending':
-      return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-    case 'rejected':
-      return 'bg-red-100 text-red-800 border-red-300';
-    case 'completed':
-      return 'bg-gray-100 text-gray-800 border-gray-300';
-    default:
-      return 'bg-gray-100 text-gray-800 border-gray-300';
-  }
-}
+function StatusBadge({ status }: { status: Status }) {
+  const getStatusConfig = (status: Status) => {
+    switch (status) {
+      case 'approved':
+        return { text: 'อนุมัติแล้ว', className: 'bg-green-100 text-green-800 border-green-200' };
+      case 'pending':
+        return { text: 'รออนุมัติ', className: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+      case 'rejected':
+        return { text: 'ไม่อนุมัติ', className: 'bg-red-100 text-red-800 border-red-200' };
+      case 'completed':
+        return { text: 'เสร็จสิ้น', className: 'bg-gray-100 text-gray-800 border-gray-200' };
+      default:
+        return { text: status, className: 'bg-gray-100 text-gray-800 border-gray-200' };
+    }
+  };
 
-function pickCoverUrl(a: Activity): string {
-  const raw =
-    (a as any).cover_url ||
-    (a as any).image_url ||
-    a?.images?.[0]?.image_url ||
-    '';
-  const abs = toAbsoluteImageUrl(raw);
-  return abs || '/no-image.jpg';
+  const config = getStatusConfig(status);
+  return (
+    <Badge variant="outline" className={config.className}>
+      {config.text}
+    </Badge>
+  );
 }
 
 export default function ActivityCard({ a }: { a: Activity }) {
+  const { user } = useAuth();
+  const { regs } = useMyRegistrations(!!user);
+
   const start = a.start_date ? new Date(a.start_date) : null;
   const end = a.end_date ? new Date(a.end_date) : null;
   const now = new Date();
+  const registrationDeadline = (a as any).registration_deadline ? new Date((a as any).registration_deadline) : start;
 
   const isOngoing = !!(start && end && start <= now && end >= now);
   const isUpcoming = !!(start && start > now);
-  const isCompleted = !!(end && end < now);
+  const isPast = !!(end && end < now);
+  const isRegistrationClosed = !!(registrationDeadline && registrationDeadline <= now);
 
-  const daysUntil = isUpcoming
-    ? Math.max(0, Math.ceil((start!.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
-    : 0;
+  // Check if user is registered
+  const myReg = regs.find(r => r.activity_id === a.id && r.status === 'registered');
+  const isRegistered = !!myReg;
 
-  const dateLabel = (() => {
-    const s = formatDate(a.start_date);
-    const e = formatDate(a.end_date);
-    if (s && e && s !== e) return `${s} - ${e}`;
-    return s || e || '-';
-  })();
-
-  const canRegister = a.status === 'approved';
-  const coverUrl = pickCoverUrl(a);
+  // ตรวจสอบสถานะการสมัคร
+  const isActivityApproved = a.status === 'approved';
+  const isActivityFull = (a as any).max_participants && (a as any).current_participants >= (a as any).max_participants;
 
   return (
-    <Card className="group relative flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-xl border-2 border-gray-100 rounded-xl bg-white">
-      {/* ส่วนรูปภาพ */}
-      <Link href={`/activities/${a.id}`} className="relative block h-48 w-full overflow-hidden">
-        <Image
-          src={coverUrl}
-          alt={a.title}
-          fill
-          sizes="(max-width: 768px) 100vw, 33vw"
-          className="object-cover transition-transform duration-300 group-hover:scale-105"
-        />
-        {/* Badge สถานะ */}
-        <div className="absolute top-3 right-3 z-10">
-          {a.status && (
-            <Badge
-              variant="outline"
-              className={`font-medium shadow-sm ${getStatusStyle(a.status)}`}
-            >
-              {a.title}
+    <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 bg-white border border-gray-200 hover:border-blue-300 group">
+      {/* Activity Image */}
+      <div className="relative h-48 overflow-hidden bg-gradient-to-br from-blue-100 to-indigo-100">
+        {a.cover_url ? (
+          <Image 
+            src={toAbsoluteImageUrl(a.cover_url)} 
+            alt={a.name || 'Activity image'}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full bg-gradient-to-br from-blue-100 to-indigo-100">
+            <Flag className="w-16 h-16 text-blue-400" />
+          </div>
+        )}
+        
+        {/* Status Badge */}
+        <div className="absolute top-3 right-3">
+          <StatusBadge status={a.status} />
+        </div>
+
+        {/* Time Status Badge */}
+        <div className="absolute top-3 left-3">
+          {isOngoing && (
+            <Badge variant="default" className="bg-green-500 text-white border-0">
+              <PlayCircle className="w-3 h-3 mr-1" />
+              กำลังดำเนินการ
+            </Badge>
+          )}
+          {isUpcoming && !isOngoing && (
+            <Badge variant="secondary" className="bg-blue-500 text-white border-0">
+              <Clock className="w-3 h-3 mr-1" />
+              เร็วๆ นี้
+            </Badge>
+          )}
+          {isPast && (
+            <Badge variant="outline" className="bg-gray-500 text-white border-gray-500">
+              <CheckCircle className="w-3 h-3 mr-1" />
+              จบแล้ว
             </Badge>
           )}
         </div>
-      </Link>
+      </div>
 
-      {/* ส่วนเนื้อหา */}
-      <CardHeader className="p-4 md:p-6 flex-grow">
-        <div className="flex flex-col gap-2">
-          {/* ชื่อกิจกรรม */}
-          <Link href={`/activities/${a.id}`} className="block">
-            <h3 className="text-xl font-bold text-gray-900 line-clamp-2 leading-tight transition-colors duration-200 hover:text-green-700">
-              {a.title}
-            </h3>
-          </Link>
-          {/* รายละเอียด */}
-          {a.description && (
-            <p className="text-sm text-gray-600 line-clamp-2">
-              {a.description}
-            </p>
-          )}
-        </div>
+      <CardHeader className="p-4 pb-2">
+        <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 group-hover:text-blue-700 transition-colors">
+          {a.name}
+        </h3>
+        {a.description && (
+          <p className="text-sm text-gray-600 line-clamp-2 mt-1">
+            {a.description}
+          </p>
+        )}
       </CardHeader>
 
-      {/* ส่วนรายละเอียดเพิ่มเติม */}
-      <CardContent className="p-4 md:px-6 md:pt-0 pt-0 space-y-3 border-t border-gray-100">
-        <div className="flex items-center gap-2 text-sm text-gray-700">
-          <CalendarDays className="w-4 h-4 text-green-600 shrink-0" />
-          <span className="font-medium text-gray-800">{dateLabel}</span>
+      <CardContent className="p-4 pt-0 space-y-3">
+        {/* Date and Time */}
+        <div className="flex items-center text-sm text-gray-600">
+          <CalendarDays className="w-4 h-4 mr-2 text-blue-500" />
+          <span>
+            {start ? formatDate(a.start_date) : 'ไม่ระบุวันที่'}
+            {end && end.getTime() !== start?.getTime() && (
+              <> - {formatDate(a.end_date)}</>
+            )}
+          </span>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-gray-700">
-          <MapPin className="w-4 h-4 text-green-600 shrink-0" />
-          <span className="font-medium text-gray-800">{a.location || 'ไม่ระบุสถานที่'}</span>
-        </div>
+        {/* Location */}
+        {a.location && (
+          <div className="flex items-center text-sm text-gray-600">
+            <MapPin className="w-4 h-4 mr-2 text-red-500" />
+            <span className="line-clamp-1">{a.location}</span>
+          </div>
+        )}
 
-        {((a as any).max_participants || (a as any).current_participants) ? (
-          <div className="flex items-center gap-2 text-sm text-gray-700">
-            <Users className="w-4 h-4 text-green-600 shrink-0" />
-            <span className="font-medium text-gray-800">
-              ผู้เข้าร่วม: <span className="text-green-700">{(a as any).current_participants || 0}</span>
-              {(a as any).max_participants ? (
-                <>
-                  <span className="text-gray-400"> / </span>
-                  <span className="text-gray-500">{(a as any).max_participants}</span>
-                </>
-              ) : null}
+        {/* Participants */}
+        {(a as any).max_participants && (
+          <div className="flex items-center text-sm text-gray-600">
+            <Users className="w-4 h-4 mr-2 text-green-500" />
+            <span>
+              {(a as any).current_participants || 0} / {(a as any).max_participants} คน
             </span>
+            {isActivityFull && (
+              <Badge variant="destructive" className="ml-2 text-xs">
+                เต็ม
+              </Badge>
+            )}
           </div>
-        ) : null}
+        )}
 
-        {/* แสดงสถานะเวลา */}
-        {isUpcoming && (
-          <div className="flex items-center gap-2 text-sm text-orange-600 font-bold">
-            <Clock className="w-4 h-4 shrink-0" />
-            <span>เหลือเวลา {daysUntil} วัน</span>
-          </div>
-        )}
-        {isOngoing && (
-          <div className="flex items-center gap-2 text-sm text-green-600 font-bold">
-            <PlayCircle className="w-4 h-4 shrink-0 animate-pulse" />
-            <span>กำลังดำเนินอยู่</span>
-          </div>
-        )}
-        {isCompleted && (
-          <div className="flex items-center gap-2 text-sm text-gray-500 font-bold">
-            <Flag className="w-4 h-4 shrink-0" />
-            <span>กิจกรรมผ่านไปแล้ว</span>
+        {/* Registration Status for Students */}
+        {user?.role === 'student' && (
+          <div className="mt-3 space-y-2">
+            {/* Registration Status */}
+            {isRegistered && (
+              <div className="flex items-center text-green-600 bg-green-50 p-2 rounded-md">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                <span className="text-sm font-medium">คุณได้สมัครเข้าร่วมแล้ว</span>
+              </div>
+            )}
+
+            {/* Status Indicators */}
+            {!isActivityApproved && (
+              <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50">
+                รออนุมัติ
+              </Badge>
+            )}
+            
+            {isPast && (
+              <Badge variant="outline" className="text-gray-600 border-gray-300 bg-gray-50">
+                สิ้นสุดแล้ว
+              </Badge>
+            )}
+            
+            {isRegistrationClosed && !isPast && (
+              <Badge variant="outline" className="text-red-600 border-red-300 bg-red-50">
+                หมดเวลาสมัคร
+              </Badge>
+            )}
+            
+            {isActivityFull && (
+              <Badge variant="outline" className="text-red-600 border-red-300 bg-red-50">
+                เต็มแล้ว
+              </Badge>
+            )}
           </div>
         )}
       </CardContent>
 
-      {/* ส่วน Footer และปุ่ม */}
-      <CardFooter className="p-4 md:p-6 pt-4 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex-grow flex-shrink">
-          {(a as any).category ? (
-            <Badge variant="secondary" className="bg-green-50 text-green-700 border border-green-200">
-              {(a as any).category}
-            </Badge>
-          ) : null}
-        </div>
-
-        <Button asChild size="sm" className="flex-grow flex-shrink bg-green-600 text-white hover:bg-green-700 transition-colors">
-          <Link href={`/activities/${a.id}`}>
+      <CardFooter className="p-4 pt-0">
+        <Link href={`/activities/${a.id}`} className="w-full">
+          <Button variant="outline" className="w-full group-hover:bg-blue-50 group-hover:border-blue-300 transition-colors">
             <Eye className="w-4 h-4 mr-2" />
             ดูรายละเอียด
-          </Link>
-        </Button>
+          </Button>
+        </Link>
       </CardFooter>
     </Card>
   );

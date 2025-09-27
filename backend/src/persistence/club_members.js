@@ -9,7 +9,7 @@ async function isPresidentOfClub(userId, clubId) {
   const { rows } = await query(
     `SELECT 1
      FROM club_members
-     WHERE club_id = $1 AND user_id = $2 AND role_in_club = 'president'
+  WHERE club_id = $1 AND user_id = $2::uuid AND role = 'president'
      LIMIT 1`,
     [clubId, userId]
   );
@@ -20,7 +20,7 @@ async function findClubIdsOfPresident(userId) {
   const { rows } = await query(
     `SELECT club_id
      FROM club_members
-     WHERE user_id = $1 AND role_in_club = 'president'`,
+  WHERE user_id = $1::uuid AND role = 'president'`,
     [userId]
   );
   return rows.map(r => r.club_id);
@@ -29,11 +29,11 @@ async function findClubIdsOfPresident(userId) {
 async function addMember(clubId, userId, roleInClub = 'member') {
   try {
     const { rows } = await query(
-      `INSERT INTO club_members (club_id, user_id, role_in_club)
+      `INSERT INTO club_members (club_id, user_id, role)
        VALUES ($1, $2, $3)
        ON CONFLICT (club_id, user_id)
-       DO UPDATE SET role_in_club = EXCLUDED.role_in_club
-       RETURNING id, club_id, user_id, role_in_club`,
+       DO UPDATE SET role = EXCLUDED.role
+       RETURNING id, club_id, user_id, role`,
       [clubId, userId, roleInClub]
     );
     return rows[0];
@@ -49,8 +49,8 @@ async function addMember(clubId, userId, roleInClub = 'member') {
 
 async function removeMember(clubId, userId) {
   const { rowCount } = await query(
-    `DELETE FROM club_members WHERE club_id = $1 AND user_id = $2`,
-    [clubId, userId]
+  `DELETE FROM club_members WHERE club_id = $1 AND user_id = $2::uuid`,
+  [clubId, userId]
   );
   return rowCount > 0;
 }
@@ -62,14 +62,37 @@ async function listMembers(clubId) {
         cm.user_id AS id,
         u.name,
         u.email,
-        cm.role_in_club AS role
+        cm.role AS role
      FROM club_members cm
-     LEFT JOIN users u ON u.id = cm.user_id
+     LEFT JOIN users u ON u.id = cm.user_id::uuid
      WHERE cm.club_id = $1
      ORDER BY cm.id ASC`,
     [clubId]
   );
   return rows;
+}
+
+async function findClubsByUserId(userId) {
+  const { rows } = await query(
+    `SELECT
+        c.id,
+        c.name,
+        cm.role AS role
+     FROM club_members cm
+     JOIN clubs c ON c.id = cm.club_id
+     WHERE cm.user_id = $1::uuid
+     ORDER BY c.name ASC`,
+    [userId]
+  );
+  return rows;
+}
+
+async function removeUserFromAllClubs(userId) {
+  const { rowCount } = await query(
+    `DELETE FROM club_members WHERE user_id = $1::uuid`,
+    [userId]
+  );
+  return rowCount;
 }
 
 module.exports = {
@@ -78,4 +101,6 @@ module.exports = {
   addMember,
   removeMember,
   listMembers,
+  findClubsByUserId,
+  removeUserFromAllClubs,
 };

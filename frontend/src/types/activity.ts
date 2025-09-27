@@ -8,13 +8,15 @@ export type ActivityImage = {
 
 export type Activity = {
       id: number;
-      title: string;
+      name: string;
       description: string | null;
       start_date: string | null;
       end_date: string | null;
       location: string | null;
       created_by: string;
       status: 'pending' | 'approved' | 'rejected' | 'completed';
+      max_participants?: number;
+      current_participants?: number;
       cover_url?: string; // Optional for backward compatibility
       images?: ActivityImage[];
       created_at: string;

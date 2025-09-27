@@ -64,7 +64,7 @@ export default function HomePage() {
       const inCategory =
         selectedCategory === 'ทั้งหมด' ||
         String(a?.category || '').toLowerCase() === selectedCategory.toLowerCase();
-      const text = `${a?.title || a?.name || ''} ${a?.description || ''}`.toLowerCase();
+      const text = `${a?.name || ''} ${a?.description || ''}`.toLowerCase();
       const inSearch = !term || text.includes(term);
       return inCategory && inSearch;
     });

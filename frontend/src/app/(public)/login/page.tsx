@@ -5,10 +5,14 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { signIn, getSession } from 'next-auth/react';
+import { useToast } from '@/components/ui/toast';
+import { LoadingButton } from '@/components/ui/loading-button';
+import { Eye, EyeOff } from 'lucide-react';
 
 function LoginContent() {
   const router = useRouter();
   const sp = useSearchParams();
+  const toast = useToast();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,32 +38,43 @@ function LoginContent() {
     }
 
     setLoading(true);
-    const res = await signIn('credentials', { email, password, redirect: false });
-    if (!res || res.error) {
+    
+    try {
+      const res = await signIn('credentials', { email, password, redirect: false });
+      if (!res || res.error) {
+        setErr(res?.error || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+        toast.error('เข้าสู่ระบบไม่สำเร็จ', res?.error || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+        return;
+      }
+
+      // Success feedback
+      toast.success('เข้าสู่ระบบสำเร็จ!', 'ยินดีต้อนรับกลับมา');
+
+      const session = await getSession();
+      const role = (session as any)?.user?.role as 'admin' | 'president' | 'student' | undefined;
+
+      const from = sp.get('callbackUrl');
+      let next = '/';
+
+      if (isSafeInternalPath(from) && roleAllowsPath(role, from!)) {
+        next = from!;
+      } else {
+        if (role === 'admin') next = '/admin';
+        else if (role === 'president') next = '/dashboard';
+        else next = '/';
+      }
+
+      if (role === 'student' && isProtected(next)) {
+        next = '/';
+      }
+
+      router.replace(next);
+    } catch (error) {
+      setErr('เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
+      toast.error('เข้าสู่ระบบไม่สำเร็จ', 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
+    } finally {
       setLoading(false);
-      setErr(res?.error || 'เข้าสู่ระบบไม่สำเร็จ');
-      return;
     }
-
-    const session = await getSession();
-    const role = (session as any)?.user?.role as 'admin' | 'president' | 'student' | undefined;
-
-    const from = sp.get('callbackUrl');
-    let next = '/';
-
-    if (isSafeInternalPath(from) && roleAllowsPath(role, from!)) {
-      next = from!;
-    } else {
-      if (role === 'admin') next = '/admin';
-      else if (role === 'president') next = '/dashboard';
-      else next = '/';
-    }
-
-    if (role === 'student' && isProtected(next)) {
-      next = '/';
-    }
-
-    router.replace(next);
   };
 
   return (
@@ -119,29 +134,23 @@ function LoginContent() {
                   <button
                     type="button"
                     onClick={() => setShowPwd((v) => !v)}
-                    className="absolute inset-y-0 right-2 my-auto h-8 rounded-md px-2 text-xs text-gray-500 hover:text-gray-700"
+                    className="absolute inset-y-0 right-2 my-auto h-8 rounded-md px-2 text-xs text-gray-500 hover:text-gray-700 flex items-center"
                     aria-label={showPwd ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
                   >
-                    {showPwd ? 'ซ่อน' : 'แสดง'}
+                    {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
 
               {/* Actions */}
-              <button
+              <LoadingButton
                 type="submit"
-                disabled={loading}
+                loading={loading}
+                loadingText="กำลังเข้าสู่ระบบ..."
                 className="group relative inline-flex w-full items-center justify-center rounded-full bg-gray-900 px-5 py-2.5 text-white transition hover:bg-black disabled:opacity-60"
               >
-                {loading ? (
-                  <span className="inline-flex items-center gap-2">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-b-transparent" />
-                    กำลังเข้าสู่ระบบ…
-                  </span>
-                ) : (
-                  'เข้าสู่ระบบ'
-                )}
-              </button>
+                เข้าสู่ระบบ
+              </LoadingButton>
             </form>
 
             {/* Divider */}

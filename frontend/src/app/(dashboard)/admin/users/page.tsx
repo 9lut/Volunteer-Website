@@ -4,7 +4,7 @@ import { api } from '@/lib/axios';
 import { useState, useMemo, useEffect } from 'react';
 import {
   Users, Search, Filter, ChevronDown, ChevronLeft, ChevronRight, XCircle,
-  MoreVertical, KeyRound, Power, PowerOff, Trash2, Plus, Upload, Download, Clipboard
+  MoreVertical, KeyRound, Power, PowerOff, Trash2, Plus, Upload, Download, Clipboard, Edit
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -25,7 +25,8 @@ type UserRow = {
   email: string;
   role: 'student' | 'president' | 'admin';
   name?: string | null;
-  club?: string | null;          // ชื่อชมรม (ถ้ามี)
+  club?: string | null;          // ชื่อชมรม (ถ้ามี) - รูปแบบ "ชมรม A, ชมรม B"
+  clubs?: Array<{id: number; name: string; role: string}>; // ข้อมูลชมรมแบบละเอียด
   status?: 'active' | 'disabled';// ออปชัน: ถ้า backend มีสถานะการใช้งาน
   created_at?: string;
 };
@@ -58,18 +59,18 @@ export default function AdminUsers() {
     name: string;
     email: string;
     role: UserRow['role'];
-    clubId: string;             // 'none' หรือ club id (string)
-    autoPassword: boolean;
     password: string;
+    autoPassword: boolean;
     active: boolean;
+    clubIds: string[]; // เปลี่ยนเป็น array สำหรับเลือกหลายชมรม
   }>({
     name: '',
     email: '',
     role: 'student',
-    clubId: 'none',
-    autoPassword: true,
     password: randomPassword(),
+    autoPassword: true,
     active: true,
+    clubIds: [], // เปลี่ยนจาก clubId เป็น clubIds สำหรับเลือกหลายชมรม
   });
 
   // Reset password modal (show temp password returned)
@@ -82,11 +83,90 @@ export default function AdminUsers() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
 
+  // Edit user modal
+  const [editOpen, setEditOpen] = useState(false);
+  const [editUser, setEditUser] = useState<UserRow | null>(null);
+  const [editForm, setEditForm] = useState<{
+    name: string;
+    email: string;
+    role: UserRow['role'];
+    status: 'active' | 'disabled';
+    clubIds: string[]; // สำหรับประธานชมรม สามารถเลือกได้หลายชมรม
+  }>({
+    name: '',
+    email: '',
+    role: 'student',
+    status: 'active',
+    clubIds: [],
+  });
+
   const updateRole = async (id: string, role: UserRow['role']) => {
     try {
       setBusyId(id);
       await api.patch(`/api/users/${id}/role`, { role });
       await mutate();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const openEdit = async (user: UserRow) => {
+    setEditUser(user);
+    setEditForm({
+      name: user.name || '',
+      email: user.email,
+      role: user.role,
+      status: user.status || 'active',
+      clubIds: [], // จะโหลดจาก API
+    });
+
+    // โหลดข้อมูลชมรมของผู้ใช้ (สำหรับประธาน)
+    if (user.role === 'president') {
+      try {
+        const response = await api.get(`/api/users/${user.id}/clubs`);
+        setEditForm(prev => ({ ...prev, clubIds: response.data.map((c: any) => String(c.id)) }));
+      } catch (error) {
+        console.error('Error loading user clubs:', error);
+      }
+    }
+    
+    setEditOpen(true);
+  };
+
+  const submitEdit = async () => {
+    if (!editUser) return;
+    if (!editForm.email.trim()) return alert('กรุณากรอกอีเมล');
+    
+    try {
+      setBusyId(editUser.id);
+      
+      const payload: any = {
+        name: editForm.name || null,
+        email: editForm.email,
+        role: editForm.role,
+        status: editForm.status,
+      };
+
+      // อัปเดตข้อมูลผู้ใช้
+      await api.patch(`/api/users/${editUser.id}`, payload);
+
+      // จัดการชมรมสำหรับประธาน
+      if (editForm.role === 'president') {
+        await api.patch(`/api/users/${editUser.id}/clubs`, {
+          club_ids: editForm.clubIds
+        });
+      } else {
+        // ถ้าไม่ใช่ประธาน ลบออกจากชมรมทั้งหมด
+        await api.patch(`/api/users/${editUser.id}/clubs`, { club_ids: [] });
+      }
+
+      setEditOpen(false);
+      setEditUser(null);
+      await mutate();
+      
+    } catch (e: any) {
+      console.error('Edit user failed:', e?.response?.status, e?.response?.data || e?.message);
+      alert(e?.response?.data?.message || 'แก้ไขผู้ใช้ไม่สำเร็จ');
     } finally {
       setBusyId(null);
     }
@@ -127,39 +207,38 @@ export default function AdminUsers() {
   };
 
   const submitCreate = async () => {
-    // ตรวจสอบเบื้องต้น
     if (!createForm.email.trim()) return alert('กรุณากรอกอีเมล');
     if (!createForm.autoPassword && !createForm.password.trim()) return alert('กรุณากรอกรหัสผ่าน');
-
-    setCreateSaving(true);
+    if (createForm.role === 'president' && createForm.clubIds.length === 0) {
+      return alert('กรุณาเลือกชมรมอย่างน้อย 1 ชมรมสำหรับประธานชมรม');
+    }
     try {
+      setCreateSaving(true);
       const payload: any = {
         name: createForm.name || null,
         email: createForm.email,
         role: createForm.role,
         password: createForm.autoPassword ? createForm.password : createForm.password || undefined,
         status: createForm.active ? 'active' : 'disabled',
-        club_id: createForm.clubId !== 'none' ? Number(createForm.clubId) : null,
+        club_ids: createForm.clubIds,
       };
       await api.post('/api/users', payload);
-      await mutate();
       setCreateOpen(false);
-      // reset form
+      setCreateSaving(false);
       setCreateForm({
         name: '',
         email: '',
         role: 'student',
-        clubId: 'none',
-        autoPassword: true,
         password: randomPassword(),
+        autoPassword: true,
         active: true,
+        clubIds: [],
       });
+      await mutate();
     } catch (e: any) {
-      // eslint-disable-next-line no-console
+      setCreateSaving(false);
       console.error('create user failed:', e?.response?.status, e?.response?.data || e?.message);
       alert(e?.response?.data?.message || 'สร้างผู้ใช้ไม่สำเร็จ');
-    } finally {
-      setCreateSaving(false);
     }
   };
 
@@ -278,7 +357,7 @@ export default function AdminUsers() {
   }
 
   return (
-    <div className="min-h-screen bg-white md:bg-emerald-50/40 w-full lg:pl-64 p-4 sm:p-6">
+    <div className="min-h-screen bg-white md:bg-emerald-50/40 w-full p-4 sm:p-6">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
         <div className="mb-4 sm:mb-6 flex items-center justify-between">
@@ -461,7 +540,30 @@ export default function AdminUsers() {
                       </div>
                     </td>
                     <td className="px-6 py-3.5">
-                      <span className="text-sm text-emerald-900">{user.club || '-'}</span>
+                      {user.role === 'president' ? (
+                        <div className="space-y-1">
+                          {/* แสดงจาก clubs array ถ้ามี */}
+                          {user.clubs && user.clubs.length > 0 ? (
+                            user.clubs.map((club, index) => (
+                              <span 
+                                key={club.id}
+                                className="inline-block px-2 py-1 bg-blue-50 text-blue-800 text-xs rounded-md border border-blue-200 mr-1 mb-1"
+                              >
+                                {club.name}
+                              </span>
+                            ))
+                          ) : user.club ? (
+                            /* แสดงจาก club string ถ้ามี */
+                            <span className="inline-block px-2 py-1 bg-blue-50 text-blue-800 text-xs rounded-md border border-blue-200">
+                              {user.club}
+                            </span>
+                          ) : (
+                            <span className="text-sm text-orange-600">ยังไม่ได้กำหนดชมรม</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-500">-</span>
+                      )}
                     </td>
                     <td className="px-6 py-3.5">
                       <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getRoleBadgeColor(user.role)}`}>
@@ -510,6 +612,9 @@ export default function AdminUsers() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="min-w-48">
+                            <DropdownMenuItem onClick={() => openEdit(user)}>
+                              <Edit className="h-4 w-4 mr-2" /> แก้ไขข้อมูล
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openReset(user)}>
                               <KeyRound className="h-4 w-4 mr-2" /> รีเซ็ตรหัสผ่าน
                             </DropdownMenuItem>
@@ -544,8 +649,33 @@ export default function AdminUsers() {
                   <div className="flex-1">
                     <h3 className="text-sm font-medium text-emerald-900">{user.name || 'ไม่ระบุชื่อ'}</h3>
                     <p className="text-sm text-emerald-700/80 mt-1">{user.email}</p>
-                    {user.club && <p className="text-xs text-emerald-700/70 mt-1">ชมรม: {user.club}</p>}
-                    <div className="mt-1">
+                    
+                    {/* แสดงชมรมสำหรับประธาน */}
+                    {user.role === 'president' && (
+                      <div className="mt-2">
+                        <p className="text-xs text-emerald-700/70 mb-1">ประธานชมรม:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {user.clubs && user.clubs.length > 0 ? (
+                            user.clubs.map((club) => (
+                              <span 
+                                key={club.id}
+                                className="inline-block px-2 py-1 bg-blue-50 text-blue-800 text-xs rounded-md border border-blue-200"
+                              >
+                                {club.name}
+                              </span>
+                            ))
+                          ) : user.club ? (
+                            <span className="inline-block px-2 py-1 bg-blue-50 text-blue-800 text-xs rounded-md border border-blue-200">
+                              {user.club}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-orange-600">ยังไม่ได้กำหนดชมรม</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="mt-2">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border ${
                         user.status === 'disabled'
                           ? 'bg-gray-100 text-gray-700 border-gray-200'
@@ -562,6 +692,9 @@ export default function AdminUsers() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="min-w-48">
+                      <DropdownMenuItem onClick={() => openEdit(user)}>
+                        <Edit className="h-4 w-4 mr-2" /> แก้ไขข้อมูล
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => openReset(user)}>
                         <KeyRound className="h-4 w-4 mr-2" /> รีเซ็ตรหัสผ่าน
                       </DropdownMenuItem>
@@ -703,7 +836,7 @@ export default function AdminUsers() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>บทบาท</Label>
-                <Select value={createForm.role} onValueChange={(v) => setCreateForm(s => ({ ...s, role: v as UserRow['role'] }))}>
+                <Select value={createForm.role} onValueChange={(v) => setCreateForm(s => ({ ...s, role: v as UserRow['role'], clubIds: v !== 'president' ? [] : s.clubIds }))}>
                   <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="student">นักเรียน</SelectItem>
@@ -713,18 +846,48 @@ export default function AdminUsers() {
                 </Select>
               </div>
               <div>
-                <Label>ชมรม (ออปชัน)</Label>
-                <Select value={createForm.clubId} onValueChange={(v) => setCreateForm(s => ({ ...s, clubId: v }))}>
-                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="ไม่ระบุ" /></SelectTrigger>
+                <Label>สถานะ</Label>
+                <Select value={createForm.active ? 'active' : 'disabled'} onValueChange={(v) => setCreateForm(s => ({ ...s, active: v === 'active' }))}>
+                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">ไม่ระบุ</SelectItem>
-                    {clubList.map(c => (
-                      <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                    ))}
+                    <SelectItem value="active">ใช้งานอยู่</SelectItem>
+                    <SelectItem value="disabled">ปิดการใช้งาน</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
+
+            {createForm.role === 'president' && (
+              <div>
+                <Label>ชมรมที่เป็นประธาน (เลือกได้หลายชมรม)</Label>
+                <div className="mt-2 space-y-2 max-h-48 overflow-y-auto border border-emerald-200 rounded-xl p-3">
+                  {clubList.map(club => (
+                    <div key={club.id} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`create-club-${club.id}`}
+                        checked={createForm.clubIds.includes(String(club.id))}
+                        onChange={(e) => {
+                          const clubId = String(club.id);
+                          if (e.target.checked) {
+                            setCreateForm(s => ({ ...s, clubIds: [...s.clubIds, clubId] }));
+                          } else {
+                            setCreateForm(s => ({ ...s, clubIds: s.clubIds.filter(id => id !== clubId) }));
+                          }
+                        }}
+                        className="rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <label htmlFor={`create-club-${club.id}`} className="text-sm text-emerald-900 cursor-pointer">
+                        {club.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-emerald-700/80 mt-1">
+                  เลือกชมรมที่ผู้ใช้นี้จะเป็นประธาน (ต้องเลือกอย่างน้อย 1 ชมรม)
+                </p>
+              </div>
+            )}
 
             <div className="space-y-2 rounded-xl border border-emerald-200/60 p-3">
               <div className="flex items-center justify-between">
@@ -841,6 +1004,104 @@ export default function AdminUsers() {
             </Button>
             <Button onClick={submitImport} disabled={importing || !importFile} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white">
               {importing ? 'กำลังนำเข้า…' : 'นำเข้า'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Modal */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="text-emerald-900">แก้ไขข้อมูลผู้ใช้</DialogTitle>
+            <DialogDescription>แก้ไขข้อมูลและกำหนดบทบาท/ชมรม</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <Label htmlFor="edit-name">ชื่อ</Label>
+              <Input
+                id="edit-name"
+                value={editForm.name}
+                onChange={(e) => setEditForm(s => ({ ...s, name: e.target.value }))}
+                className="rounded-xl focus-visible:ring-emerald-500"
+                placeholder="ระบุชื่อของผู้ใช้"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-email">อีเมล</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm(s => ({ ...s, email: e.target.value }))}
+                className="rounded-xl focus-visible:ring-emerald-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label>บทบาท</Label>
+                <Select value={editForm.role} onValueChange={(v) => setEditForm(s => ({ ...s, role: v as UserRow['role'], clubIds: v !== 'president' ? [] : s.clubIds }))}>
+                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="student">นักเรียน</SelectItem>
+                    <SelectItem value="president">ประธานชมรม</SelectItem>
+                    <SelectItem value="admin">ผู้ดูแลระบบ</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>สถานะ</Label>
+                <Select value={editForm.status} onValueChange={(v) => setEditForm(s => ({ ...s, status: v as 'active' | 'disabled' }))}>
+                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">ใช้งานอยู่</SelectItem>
+                    <SelectItem value="disabled">ปิดการใช้งาน</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {editForm.role === 'president' && (
+              <div>
+                <Label>ชมรมที่เป็นประธาน (เลือกได้หลายชมรม)</Label>
+                <div className="mt-2 space-y-2 max-h-48 overflow-y-auto border border-emerald-200 rounded-xl p-3">
+                  {clubList.map(club => (
+                    <div key={club.id} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`club-${club.id}`}
+                        checked={editForm.clubIds.includes(String(club.id))}
+                        onChange={(e) => {
+                          const clubId = String(club.id);
+                          if (e.target.checked) {
+                            setEditForm(s => ({ ...s, clubIds: [...s.clubIds, clubId] }));
+                          } else {
+                            setEditForm(s => ({ ...s, clubIds: s.clubIds.filter(id => id !== clubId) }));
+                          }
+                        }}
+                        className="rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <label htmlFor={`club-${club.id}`} className="text-sm text-emerald-900 cursor-pointer">
+                        {club.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-emerald-700/80 mt-1">
+                  เลือกชมรมที่ผู้ใช้นี้จะเป็นประธาน (สามารถเลือกได้หลายชมรม)
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={busyId === editUser?.id} className="rounded-xl">
+              ยกเลิก
+            </Button>
+            <Button onClick={submitEdit} disabled={busyId === editUser?.id} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white">
+              {busyId === editUser?.id ? 'กำลังบันทึก…' : 'บันทึกการแก้ไข'}
             </Button>
           </DialogFooter>
         </DialogContent>

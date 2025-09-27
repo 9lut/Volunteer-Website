@@ -8,7 +8,7 @@ function toDate(x) {
 
 /** คอลัมน์ฐาน + cover_url (เลือก is_cover ก่อน, ไม่งั้นรูปแรก) */
 const BASE_COLS = `
-  id, title, description, start_date, end_date, location,
+  id, name, description, start_date, end_date, location, max_participants,
   created_by, status, created_at, updated_at, club_id,
   COALESCE(
     (
@@ -31,7 +31,7 @@ const BASE_COLS = `
 /**
  * สร้างกิจกรรม (สถานะเริ่มต้นเป็น pending)
  * @param {Object} data
- * @param {string} data.title
+ * @param {string} data.name
  * @param {string|null} [data.description]
  * @param {string|null} [data.start_date]
  * @param {string|null} [data.end_date]
@@ -42,21 +42,22 @@ const BASE_COLS = `
  */
 async function create(data) {
   const {
-    title,
+    name,
     description = null,
     start_date = null,
     end_date = null,
     location = null,
+    max_participants = 10,
     created_by,
     status = 'pending',
     club_id = null,
   } = data;
 
   const { rows } = await query(
-    `INSERT INTO activities (title, description, start_date, end_date, location, created_by, status, club_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::activity_status, $8)
+    `INSERT INTO activities (name, description, start_date, end_date, location, max_participants, created_by, status, club_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING id`,
-    [title, description, toDate(start_date), toDate(end_date), location, created_by, status, club_id]
+    [name, description, toDate(start_date), toDate(end_date), location, max_participants, created_by, status, club_id]
   );
 
   const newId = rows[0]?.id;
@@ -78,10 +79,14 @@ async function findAll({ status = 'approved', limit = 0, sort = '', club_id = nu
 
   if (status && status !== 'all') {
     params.push(status);
-    where.push(`status = $${params.length}::activity_status`);
+    where.push(`status = $${params.length}`);
   }
 
-  if (club_id) {
+  if (Array.isArray(club_id) && club_id.length > 0) {
+    const placeholders = club_id.map((_, i) => `$${params.length + i + 1}`).join(',');
+    params.push(...club_id);
+    where.push(`club_id IN (${placeholders})`);
+  } else if (club_id) {
     params.push(club_id);
     where.push(`club_id = $${params.length}`);
   }
@@ -115,7 +120,7 @@ async function findById(id) {
 
 /** อัปเดตกิจกรรม (อนุญาตเฉพาะฟิลด์ที่กำหนด) */
 async function update(id, data, _actor) {
-  const allowed = ['title', 'description', 'start_date', 'end_date', 'location'];
+  const allowed = ['name', 'description', 'start_date', 'end_date', 'location'];
   const sets = [];
   const values = [];
   let i = 1;
@@ -187,7 +192,7 @@ async function setCover(activityId, imageId) {
 async function setStatus(id, status) {
   const { rowCount } = await query(
     `UPDATE activities
-     SET status = $2::activity_status, updated_at = NOW()
+     SET status = $2, updated_at = NOW()
      WHERE id = $1`,
     [id, status]
   );

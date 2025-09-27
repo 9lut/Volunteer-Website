@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { api } from '@/lib/axios';
 import { useAuth } from '@/hooks/useAuth';
+import { useRouter } from 'next/navigation';
 
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -20,10 +20,11 @@ import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { toAbsoluteImageUrl } from '@/lib/helpers/url';
 import { CalendarDays, MapPin, Pencil, Trash2, Search, ImageIcon, Filter, XCircle } from 'lucide-react';
+import { Users } from 'lucide-react';
 
 type Activity = {
   id: number;
-  title: string;
+  name: string;
   description?: string | null;
   start_date?: string | null;
   end_date?: string | null;
@@ -32,7 +33,7 @@ type Activity = {
   created_at: string;
   updated_at: string;
   cover_url?: string | null;
-  club_id?: number | null;
+  club_id?: string | null;
 };
 
 type ActivityImage = {
@@ -44,10 +45,13 @@ type ActivityImage = {
 
 type Club = { id: number; name: string };
 
+type RegRow = { id: number; activity_id: number; user_id: string; created_at: string; email?: string|null; name?: string|null; role?: string };
+
 const fetcher = (url: string) => api.get(url).then(r => r.data);
 
 export default function ActivitiesPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const isAdmin = user?.role === 'admin';
 
   const { data, isLoading, mutate } = useSWR<Activity[]>(
@@ -55,9 +59,16 @@ export default function ActivitiesPage() {
     fetcher
   );
 
+  // โหลดชมรมที่ user เป็นประธาน (สำหรับ president)
+  const { data: myClubs = [] } = useSWR<Club[]>(
+    user?.role === 'president' ? '/api/clubs/me/president' : null,
+    fetcher
+  );
+  const myClubIds = useMemo(() => new Set(myClubs.map(c => String(c.id))), [myClubs]);
+
   // โหลดรายชื่อชมรม เพื่อใช้ในฟิลเตอร์ + แสดงชื่อ
   const { data: clubs = [] } = useSWR<Club[]>('/api/clubs?limit=1000', fetcher);
-  const clubMap = useMemo(() => new Map(clubs.map(c => [c.id, c.name])), [clubs]);
+  const clubMap = useMemo(() => new Map(clubs.map(c => [String(c.id), c.name])), [clubs]);
 
   // filters
   const [q, setQ] = useState('');
@@ -88,18 +99,48 @@ export default function ActivitiesPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Activity | null>(null);
 
+  // registrations dialog
+  const [regOpen, setRegOpen] = useState(false);
+  const [regLoading, setRegLoading] = useState(false);
+  const [regRows, setRegRows] = useState<RegRow[]>([]);
+  const [regOf, setRegOf] = useState<Activity | null>(null);
+
+  async function openRegistrations(a: Activity) {
+    setRegOf(a);
+    setRegOpen(true);
+    setRegLoading(true);
+    try {
+      const rows: RegRow[] = await fetcher(`/api/activities/${a.id}/registrations`);
+      setRegRows(rows);
+    } catch {
+      setRegRows([]);
+    } finally {
+      setRegLoading(false);
+    }
+  }
+
   // list compute
   const filtered = useMemo(() => {
     const s = q.toLowerCase().trim();
     return (data || []).filter(a => {
-      const matchesText = a.title.toLowerCase().includes(s);
+      const matchesText = a.name.toLowerCase().includes(s);
+      
+      // สำหรับ President: แสดงเฉพาะกิจกรรมของชมรมตัวเอง
+      if (user?.role === 'president') {
+        const matchesMyClubs = a.club_id && myClubIds.has(a.club_id);
+        const matchesStatus =
+          statusFilter === 'all' ? true : a.status === statusFilter;
+        return matchesText && matchesMyClubs && matchesStatus;
+      }
+      
+      // สำหรับ Admin: แสดงตามการกรอง
       const matchesClub =
-        clubFilter === 'all' ? true : a.club_id === Number(clubFilter);
+        clubFilter === 'all' ? true : a.club_id === clubFilter;
       const matchesStatus =
         statusFilter === 'all' ? true : a.status === statusFilter;
       return matchesText && matchesClub && matchesStatus;
     });
-  }, [data, q, clubFilter, statusFilter]);
+  }, [data, q, clubFilter, statusFilter, user?.role, myClubIds]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const current = useMemo(
@@ -130,7 +171,7 @@ export default function ActivitiesPage() {
   async function openEdit(a: Activity) {
     setEditing(a);
     setForm({
-      title: a.title,
+      name: a.name,
       description: a.description ?? '',
       start_date: a.start_date?.slice(0, 10) ?? '',
       end_date: a.end_date?.slice(0, 10) ?? '',
@@ -168,7 +209,7 @@ export default function ActivitiesPage() {
     setSaving(true);
     try {
       await api.put(`/api/activities/${editing.id}`, {
-        title: form.title,
+        name: form.name,
         description: form.description,
         start_date: form.start_date || null,
         end_date: form.end_date || null,
@@ -252,20 +293,69 @@ export default function ActivitiesPage() {
   );
 
   return (
-    <div className="min-h-screen bg-white md:bg-emerald-50/40 w-full lg:pl-64">
+    <div className="min-h-screen bg-white md:bg-emerald-50/40 w-full">
       {/* Header */}
       <div className="mx-auto max-w-6xl px-4 pt-4 sm:pt-6">
         <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-4 sm:p-5">
-          <h1 className="text-xl sm:text-2xl font-semibold text-emerald-900">จัดการกิจกรรม</h1>
-          <p className="mt-1 text-sm text-emerald-700/80">แตะเพื่อแก้ไข ตั้งรูปปก อัปโหลดรูป หรือ ลบกิจกรรมได้เลย</p>
+          <h1 className="text-xl sm:text-2xl font-semibold text-emerald-900">
+            {isAdmin ? 'จัดการกิจกรรม' : 'กิจกรรมของฉัน'}
+          </h1>
+          <p className="mt-1 text-sm text-emerald-700/80">
+            {isAdmin 
+              ? 'แตะเพื่อแก้ไข ตั้งรูปปก อัปโหลดรูป หรือ ลบกิจกรรมได้เลย'
+              : myClubs.length > 0 
+                ? `กิจกรรมของ${myClubs.map(c => c.name).join(', ')} • แตะเพื่อแก้ไขหรือจัดการผู้เข้าร่วม`
+                : 'คุณยังไม่ได้เป็นสมาชิกของชมรมใด กรุณาติดต่อผู้ดูแลระบบ'
+            }
+          </p>
         </div>
       </div>
+
+      {/* Action Buttons for President */}
+      {user?.role === 'president' && (
+        <div className="mx-auto max-w-6xl px-4 pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <button
+              onClick={() => router.push('/dashboard/activities/create')}
+              className="p-6 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl hover:from-emerald-600 hover:to-emerald-700 transition-all"
+            >
+              <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              <div className="text-lg font-semibold">สร้างกิจกรรมใหม่</div>
+              <div className="text-sm opacity-90">เพิ่มกิจกรรมสำหรับชมรม</div>
+            </button>
+
+            <button
+              onClick={() => router.push('/dashboard/club-stats')}
+              className="p-6 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all"
+            >
+              <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              <div className="text-lg font-semibold">สถิติชมรม</div>
+              <div className="text-sm text-gray-500">ดูผลงานและสถิติ</div>
+            </button>
+
+            <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-xl">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-emerald-600 mb-1">
+                  {(data || []).filter(a => a.club_id && myClubIds.has(a.club_id)).length}
+                </div>
+                <div className="text-sm text-emerald-700">กิจกรรมทั้งหมด</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sticky filter bar */}
       <div className="sticky top-0 z-30 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
         <div className="mx-auto max-w-6xl px-4 pt-4 pb-3">
           <div className="rounded-2xl border border-emerald-200/60 bg-white/70 shadow-sm">
-            <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
+            <div className={`p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 gap-2 ${
+              isAdmin ? 'lg:grid-cols-6' : 'lg:grid-cols-5'
+            }`}>
               {/* Search */}
               <div className="relative col-span-2">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-600" />
@@ -288,25 +378,27 @@ export default function ActivitiesPage() {
                 )}
               </div>
 
-              {/* Club filter */}
-              <div className="relative">
-                <Select value={clubFilter} onValueChange={setClubFilter}>
-                  <SelectTrigger className="h-11 rounded-xl border-emerald-300 focus:ring-emerald-500">
-                    <div className="flex items-center gap-2">
-                      <Filter className="h-4 w-4 text-emerald-600" />
-                      <SelectValue placeholder="ชมรมทั้งหมด" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">ชมรมทั้งหมด</SelectItem>
-                    {clubs.map(c => (
-                      <SelectItem key={c.id} value={String(c.id)}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Club filter - แสดงเฉพาะ Admin */}
+              {isAdmin && (
+                <div className="relative">
+                  <Select value={clubFilter} onValueChange={setClubFilter}>
+                    <SelectTrigger className="h-11 rounded-xl border-emerald-300 focus:ring-emerald-500">
+                      <div className="flex items-center gap-2">
+                        <Filter className="h-4 w-4 text-emerald-600" />
+                        <SelectValue placeholder="ชมรมทั้งหมด" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">ชมรมทั้งหมด</SelectItem>
+                      {clubs.map(c => (
+                        <SelectItem key={c.id} value={String(c.id)}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Status filter */}
               <div className="relative">
@@ -344,9 +436,10 @@ export default function ActivitiesPage() {
               {/* Summary + clear */}
               <div className="flex items-center justify-end">
                 <div className="flex flex-wrap items-center gap-2">
-                  {clubFilter !== 'all' && (
+                  {/* แสดงผลกรองชมรมเฉพาะ Admin */}
+                  {isAdmin && clubFilter !== 'all' && (
                     <span className="text-xs px-2.5 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800">
-                      ชมรม: {clubMap.get(Number(clubFilter)) || clubFilter}
+                      ชมรม: {clubMap.get(clubFilter) || clubFilter}
                     </span>
                   )}
                   {statusFilter !== 'all' && (
@@ -354,9 +447,14 @@ export default function ActivitiesPage() {
                       สถานะ: {statusFilter === 'approved' ? 'อนุมัติแล้ว' : statusFilter === 'pending' ? 'รออนุมัติ' : 'ไม่อนุมัติ'}
                     </span>
                   )}
-                  {(q || clubFilter !== 'all' || statusFilter !== 'all') && (
+                  {/* ปุ่มล้างตัวกรอง */}
+                  {(q || (isAdmin && clubFilter !== 'all') || statusFilter !== 'all') && (
                     <button
-                      onClick={() => { setQ(''); setClubFilter('all'); setStatusFilter('all'); }}
+                      onClick={() => { 
+                        setQ(''); 
+                        if (isAdmin) setClubFilter('all'); 
+                        setStatusFilter('all'); 
+                      }}
                       className="text-sm text-emerald-700 hover:text-emerald-900 underline"
                     >
                       ล้างตัวกรอง
@@ -365,7 +463,6 @@ export default function ActivitiesPage() {
                 </div>
               </div>
             </div>
-
             <div className="h-px bg-gradient-to-r from-transparent via-emerald-200 to-transparent" />
           </div>
         </div>
@@ -383,7 +480,7 @@ export default function ActivitiesPage() {
                       {a.cover_url ? (
                         <Image
                           src={toAbsoluteImageUrl(a.cover_url)}
-                          alt={a.title}
+                          alt={a.name}
                           fill
                           sizes="200px"
                           className="object-cover"
@@ -396,7 +493,7 @@ export default function ActivitiesPage() {
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium text-gray-900 truncate">{a.title}</p>
+                      <p className="font-medium text-gray-900 truncate">{a.name}</p>
                       <div className="mt-1 flex items-center gap-2 text-xs text-gray-600">
                         <CalendarDays className="w-3.5 h-3.5" />
                         <span>{a.start_date ? new Date(a.start_date).toLocaleDateString('th-TH') : '-'}</span>
@@ -414,24 +511,38 @@ export default function ActivitiesPage() {
                       </div>
 
                       <div className="mt-3 grid grid-cols-2 gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-9 rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                          onClick={() => openEdit(a)}
-                        >
-                          <Pencil className="w-4 h-4 mr-1.5" />
-                          แก้ไข
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-9 rounded-xl border-red-200 text-red-700 hover:bg-red-100"
-                          onClick={() => askDelete(a)}
-                        >
-                          <Trash2 className="w-4 h-4 mr-1.5" />
-                          ลบ
-                        </Button>
+                        {(user?.role === 'admin' || (user?.role === 'president' && a.club_id && myClubIds.has(a.club_id))) && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-9 rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                              onClick={() => router.push(`/dashboard/activities/${a.id}/edit`)}
+                            >
+                              <Pencil className="w-4 h-4 mr-1.5" />
+                              แก้ไข
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-9 rounded-xl border-sky-200 text-sky-700 hover:bg-sky-50 col-span-2"
+                              onClick={() => router.push(`/dashboard/activities/${a.id}/participants`)}
+                            >
+                              <Users className="w-4 h-4 mr-1.5" /> จัดการผู้เข้าร่วม
+                            </Button>
+                          </>
+                        )}
+                        {user?.role === 'admin' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-9 rounded-xl border-red-200 text-red-700 hover:bg-red-100 col-span-2"
+                            onClick={() => askDelete(a)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-1.5" />
+                            ลบ
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -461,7 +572,7 @@ export default function ActivitiesPage() {
                           {a.cover_url ? (
                             <Image
                               src={toAbsoluteImageUrl(a.cover_url)}
-                              alt={a.title}
+                              alt={a.name}
                               fill
                               sizes="80px"
                               className="object-cover"
@@ -473,7 +584,7 @@ export default function ActivitiesPage() {
                           )}
                         </div>
                       </td>
-                      <td className="py-3 pr-3 font-medium text-gray-900">{a.title}</td>
+                      <td className="py-3 pr-3 font-medium text-gray-900">{a.name}</td>
                       <td className="py-3 pr-3">{a.club_id ? (clubMap.get(a.club_id) || `ชมรม #${a.club_id}`) : '-'}</td>
                       <td className="py-3 pr-3">{a.location || '-'}</td>
                       <td className="py-3 pr-3">
@@ -482,12 +593,36 @@ export default function ActivitiesPage() {
                       <td className="py-3 pr-3"><StatusPill s={a.status} /></td>
                       <td className="py-3 pr-4">
                         <div className="flex justify-end gap-2">
-                          <Button size="sm" variant="outline" className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => openEdit(a)}>
-                            <Pencil className="w-4 h-4 mr-1.5" /> แก้ไข
-                          </Button>
-                          <Button size="sm" variant="outline" className="rounded-xl border-red-200 text-red-700 hover:bg-red-100" onClick={() => askDelete(a)}>
-                            <Trash2 className="w-4 h-4 mr-1.5" /> ลบ
-                          </Button>
+                          {(user?.role === 'admin' || (user?.role === 'president' && a.club_id && myClubIds.has(a.club_id))) && (
+                            <>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50" 
+                                onClick={() => router.push(`/dashboard/activities/${a.id}/edit`)}
+                              >
+                                <Pencil className="w-4 h-4 mr-1.5" /> แก้ไข
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="rounded-xl border-sky-200 text-sky-700 hover:bg-sky-50" 
+                                onClick={() => router.push(`/dashboard/activities/${a.id}/participants`)}
+                              >
+                                <Users className="w-4 h-4 mr-1.5" /> จัดการผู้เข้าร่วม
+                              </Button>
+                            </>
+                          )}
+                          {user?.role === 'admin' && (
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="rounded-xl border-red-200 text-red-700 hover:bg-red-100" 
+                              onClick={() => askDelete(a)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-1.5" /> ลบ
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -553,8 +688,8 @@ export default function ActivitiesPage() {
                 <Label htmlFor="title">ชื่อกิจกรรม</Label>
                 <Input
                   id="title"
-                  value={form.title || ''}
-                  onChange={(e) => setForm(s => ({ ...s, title: e.target.value }))}
+                  value={form.name || ''}
+                  onChange={(e) => setForm(s => ({ ...s, name: e.target.value }))}
                   className="rounded-xl focus-visible:ring-emerald-500"
                 />
               </div>
@@ -709,7 +844,7 @@ export default function ActivitiesPage() {
             <DialogTitle className="text-emerald-900">ลบกิจกรรมนี้?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-gray-600">
-            ต้องการลบ <span className="font-semibold">{toDelete?.title}</span> จริงหรือไม่
+            ต้องการลบ <span className="font-semibold">{toDelete?.name}</span> จริงหรือไม่
             การลบจะไม่สามารถกู้คืนได้
           </p>
           <DialogFooter className="mt-2">
@@ -719,6 +854,55 @@ export default function ActivitiesPage() {
             <Button onClick={confirmDelete} className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white">
               ลบเลย
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Registrations */}
+      <Dialog open={regOpen} onOpenChange={setRegOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>ผู้สมัคร {regOf?.name ? `: ${regOf.name}` : ''}</DialogTitle>
+          </DialogHeader>
+          {regLoading ? (
+            <div className="py-10 text-center text-sm text-gray-500">กำลังโหลด…</div>
+          ) : regRows.length === 0 ? (
+            <div className="py-6 text-center text-sm text-gray-500">ยังไม่มีผู้สมัคร</div>
+          ) : (
+            <div className="max-h-[60vh] overflow-auto">
+              <div className="flex justify-end mb-2">
+                <a
+                  href={`/api/activities/${regOf?.id}/registrations.csv`}
+                  target="_blank"
+                  className="text-sm px-3 py-1.5 rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                >
+                  ส่งออก CSV
+                </a>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-500 border-b">
+                    <th className="py-2 pr-3">อีเมล</th>
+                    <th className="py-2 pr-3">ชื่อ</th>
+                    <th className="py-2 pr-3">บทบาท</th>
+                    <th className="py-2 pr-3">สมัครเมื่อ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {regRows.map(r => (
+                    <tr key={r.id} className="border-b last:border-0">
+                      <td className="py-2 pr-3 font-medium text-gray-900">{r.email || r.user_id}</td>
+                      <td className="py-2 pr-3">{r.name || '-'}</td>
+                      <td className="py-2 pr-3">{r.role || '-'}</td>
+                      <td className="py-2 pr-3">{new Date(r.created_at).toLocaleString('th-TH')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setRegOpen(false)} variant="outline">ปิด</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

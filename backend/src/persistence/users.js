@@ -17,7 +17,7 @@ function normalizeEmail(email) {
  */
 async function find(email) {
   const { rows } = await query(
-    `SELECT id, email, password, role, name
+    `SELECT id, email, password, role, name, club_id
      FROM users
      WHERE email = $1
      LIMIT 1`,
@@ -206,6 +206,112 @@ async function setRole(user_id, role) {
   return rows[0] || null;
 }
 
+/**
+ * อัปเดตโปรไฟล์ผู้ใช้ (เฉพาะข้อมูลที่แก้ไขได้)
+ * @param {string} user_id - UUID ของผู้ใช้
+ * @param {object} profileData - ข้อมูลที่ต้องการอัปเดต
+ * @returns {Promise<object|null>}
+ */
+async function updateProfile(user_id, profileData) {
+  const { name } = profileData;
+  
+  const { rows } = await query(
+    `UPDATE users SET name = $2, updated_at = NOW()
+     WHERE id = $1::uuid
+     RETURNING id, email, role, name, created_at, updated_at`,
+    [user_id, name]
+  );
+  return rows[0] || null;
+}
+
+/**
+ * อัปเดตข้อมูลผู้ใช้ (admin)
+ * @param {string} user_id - UUID ของผู้ใช้
+ * @param {object} updates - ข้อมูลที่ต้องการอัปเดต
+ * @returns {Promise<object|null>}
+ */
+async function updateUser(user_id, updates) {
+  const fields = [];
+  const values = [user_id];
+  let paramIndex = 2;
+
+  if (updates.name !== undefined) {
+    fields.push(`name = $${paramIndex++}`);
+    values.push(updates.name);
+  }
+  if (updates.email !== undefined) {
+    fields.push(`email = $${paramIndex++}`);
+    values.push(normalizeEmail(updates.email));
+  }
+  if (updates.role !== undefined) {
+    fields.push(`role = $${paramIndex++}`);
+    values.push(updates.role);
+  }
+  if (updates.status !== undefined) {
+    fields.push(`status = $${paramIndex++}`);
+    values.push(updates.status);
+  }
+
+  if (fields.length === 0) {
+    return await findById(user_id);
+  }
+
+  fields.push('updated_at = NOW()');
+
+  const { rows } = await query(
+    `UPDATE users SET ${fields.join(', ')}
+     WHERE id = $1::uuid
+     RETURNING id, email, role, name, status, created_at, updated_at`,
+    values
+  );
+  return rows[0] || null;
+}
+
+/**
+ * ลบผู้ใช้
+ * @param {string} user_id - UUID ของผู้ใช้
+ * @returns {Promise<boolean>}
+ */
+async function deleteUser(user_id) {
+  const { rowCount } = await query(
+    `DELETE FROM users WHERE id = $1::uuid`,
+    [user_id]
+  );
+  return rowCount > 0;
+}
+
+/**
+ * อัปเดตรหัสผ่าน
+ * @param {string} user_id - UUID ของผู้ใช้
+ * @param {string} hashedPassword - รหัสผ่านที่ hash แล้ว
+ * @returns {Promise<object|null>}
+ */
+async function updatePassword(user_id, hashedPassword) {
+  const { rows } = await query(
+    `UPDATE users SET password = $2, updated_at = NOW()
+     WHERE id = $1::uuid
+     RETURNING id, email, role, name`,
+    [user_id, hashedPassword]
+  );
+  return rows[0] || null;
+}
+
+/**
+ * อัปเดตสถานะผู้ใช้
+ * @param {string} user_id - UUID ของผู้ใช้
+ * @param {string} status - active หรือ disabled
+ * @returns {Promise<object|null>}
+ */
+async function updateStatus(user_id, status) {
+  const { rows } = await query(
+    `UPDATE users SET status = $2, updated_at = NOW()
+     WHERE id = $1::uuid
+     RETURNING id, email, role, name, status, created_at, updated_at`,
+    [user_id, status]
+  );
+  return rows[0] || null;
+}
+
 module.exports = {
   normalizeEmail,
   find,
@@ -220,4 +326,9 @@ module.exports = {
   getStats,
   setClub, 
   setRole,
+  updateProfile,
+  updateUser,
+  deleteUser,
+  updatePassword,
+  updateStatus,
 };

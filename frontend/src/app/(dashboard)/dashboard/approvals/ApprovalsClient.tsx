@@ -18,7 +18,7 @@ type SortBy = 'submitted' | 'start';
 
 type PendingActivity = {
   id: number;
-  title?: string;
+  name?: string;
   location?: string;
   status?: string;
   start_date?: string;
@@ -83,7 +83,7 @@ export default function ApprovalsClient() {
     const now = new Date();
 
     const filtered = (pending as PendingActivity[]).filter((a: PendingActivity) => {
-      const title = (a.title || '').toLowerCase();
+      const title = (a.name || '').toLowerCase();
       const loc = (a.location || '').toLowerCase();
       const okQ = !s || title.includes(s) || loc.includes(s);
 
@@ -262,7 +262,7 @@ export default function ApprovalsClient() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_0_2px_rgba(16,185,129,0.15)]" />
-                      <p className="font-semibold text-gray-900 truncate">{a.title}</p>
+                      <p className="font-semibold text-gray-900 truncate">{a.name}</p>
                     </div>
 
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-600">

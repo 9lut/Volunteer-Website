@@ -1,159 +1,175 @@
 'use client';
+
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { NAV_MAIN, NAV_SIDE, NAV_MOBILE } from '@/config/nav';
+import { Bell } from 'lucide-react';
+import useSWR from 'swr';
+import { api } from '@/lib/axios';
 
-export default function NavBar() {
-  const { user, signOut } = useAuth();
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+const NAV_LINKS = [
+  { href: '/', label: 'หน้าแรก' },
+  { href: '/activities', label: 'กิจกรรม' },
+];
 
-  // === NEW: วัดความสูง navbar แล้วสร้าง spacer อัตโนมัติ ===
-  const navRef = useRef<HTMLElement | null>(null);
-  const [navHeight, setNavHeight] = useState<number>(64); // fallback กันกระพริบ
+const NAV_MOBILE = [
+  { href: '/', label: 'หน้าแรก' },
+  { href: '/activities', label: 'กิจกรรม' },
+];
 
-  const updateNavHeight = useCallback(() => {
-    const h = navRef.current?.getBoundingClientRect().height ?? 64;
-    setNavHeight(Math.ceil(h));
-  }, []);
-
-  useLayoutEffect(() => {
-    updateNavHeight();
-  }, [updateNavHeight]);
-
-  useEffect(() => {
-    const onResize = () => updateNavHeight();
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [updateNavHeight]);
-
-  // เมื่อเปิด/ปิดเมนูมือถือ หรือโปรไฟล์ dropdown ให้รีเฟรชความสูง
-  useEffect(() => {
-    updateNavHeight();
-  }, [isMobileMenuOpen, isProfileOpen, updateNavHeight]);
-
-  // เงา/พื้นหลังเมื่อ scroll
-  useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 10);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  // ปิดโปรไฟล์เมื่อคลิกนอก navbar
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (navRef.current && !navRef.current.contains(target)) {
-        setIsProfileOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const NavLink = ({
-    href,
-    label,
-    mobile = false,
-  }: {
-    href: string;
-    label: string;
-    mobile?: boolean;
-  }) => (
+function NavLink({ href, label, mobile = false }: { href: string; label: string; mobile?: boolean }) {
+  return (
     <Link
       href={href}
       className={
         mobile
-          ? 'block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors'
-          : 'text-gray-600 hover:text-gray-900 transition-colors font-medium'
+          ? 'block px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors'
+          : 'text-gray-700 hover:text-gray-900 transition-colors font-medium'
       }
-      onClick={() => mobile && setIsMobileMenuOpen(false)}
     >
       {label}
     </Link>
   );
+}
+
+export default function NavBar() {
+  const { user, signOut } = useAuth();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+  const notificationRef = useRef<HTMLDivElement>(null);
+
+  // ดึงข้อมูลแจ้งเตือนสำหรับ student
+  const { data: notifications = [] } = useSWR(
+    user?.role === 'student' ? '/api/users/me/registrations' : null,
+    async (url: string) => {
+      const response = await api.get(url);
+      return response.data.filter((reg: any) => 
+        reg.status === 'approved' || reg.status === 'rejected'
+      );
+    },
+    { revalidateOnFocus: false }
+  );
+
+  const unreadCount = notifications.length;
+
+  // ปิด dropdown เมื่อคลิกข้างนอก
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setIsNotificationOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
-    <>
-      {/* NAV: fixed อยู่บนสุดเสมอ */}
-      <nav
-        ref={navRef}
-        className={`fixed top-0 inset-x-0 w-full z-50 transition-all duration-300 ${
-          isScrolled
-            ? 'bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm'
-            : 'bg-white border-b border-gray-100'
-        }`}
-      >
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* โลโก้ + เมนู (Desktop) */}
-            <div className="flex items-center space-x-6">
-              <Link
-                href="/"
-                className="text-xl font-bold text-gray-900 hover:text-green-600 transition-colors"
-              >
-                Volunteer
-              </Link>
-
-              <div className="hidden lg:flex items-center space-x-6">
-                {NAV_MAIN.map((item) => (
-                  <NavLink key={item.href} href={item.href} label={item.label} />
-                ))}
-                {NAV_SIDE.map((item) => (
-                  <NavLink key={item.href} href={item.href} label={item.label} />
-                ))}
+    <nav className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          {/* โลโก้ */}
+          <div className="flex items-center">
+            <Link href="/" className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">V</span>
               </div>
-            </div>
+              <span className="text-xl font-bold text-gray-900">Volunteer Web</span>
+            </Link>
+          </div>
 
-            {/* ฝั่งขวา: Auth/โปรไฟล์ + Hamburger */}
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              {!user ? (
-                <>
-                  {/* Desktop Auth */}
-                  <div className="hidden sm:flex items-center space-x-3">
-                    <Link
-                      href="/register"
-                      className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors font-medium"
+          {/* เมนูหลัก (Desktop) */}
+          <div className="hidden lg:flex items-center space-x-4">
+            {NAV_LINKS.map((link) => (
+              <NavLink key={link.href} href={link.href} label={link.label} />
+            ))}
+          </div>
+
+          {/* ส่วนขวา */}
+          <div className="flex items-center space-x-4">
+            {user ? (
+              <>
+                {/* แจ้งเตือนสำหรับ student */}
+                {user.role === 'student' && (
+                  <div className="relative" ref={notificationRef}>
+                    <button
+                      onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                      className="relative p-2 text-gray-600 hover:text-gray-900 transition-colors"
                     >
-                      สมัครสมาชิก
-                    </Link>
-                    <Link
-                      href="/login"
-                      className="px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors font-medium shadow-sm"
-                    >
-                      เข้าสู่ระบบ
-                    </Link>
+                      <Bell className="w-5 h-5" />
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                    </button>
+
+                    {isNotificationOpen && (
+                      <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 py-2 animate-in slide-in-from-top-1 duration-200 max-h-96 overflow-y-auto">
+                        <div className="px-4 py-2 border-b border-gray-100">
+                          <h3 className="font-semibold text-gray-900">การแจ้งเตือน</h3>
+                        </div>
+                        
+                        {notifications.length === 0 ? (
+                          <div className="px-4 py-8 text-center text-gray-500">
+                            <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                            <p>ไม่มีการแจ้งเตือน</p>
+                          </div>
+                        ) : (
+                          <div className="py-2">
+                            {notifications.map((notification: any) => (
+                              <div key={notification.id} className="px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-b-0">
+                                <div className="flex items-start space-x-3">
+                                  <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${
+                                    notification.status === 'approved' ? 'bg-green-500' : 'bg-red-500'
+                                  }`} />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                      {notification.activity.name}
+                                    </p>
+                                    <p className={`text-sm ${
+                                      notification.status === 'approved' ? 'text-green-600' : 'text-red-600'
+                                    }`}>
+                                      {notification.status === 'approved' ? '✅ ได้รับการอนุมัติ' : '❌ ไม่ได้รับการอนุมัติ'}
+                                    </p>
+                                    {notification.rejection_reason && (
+                                      <p className="text-xs text-gray-500 mt-1">
+                                        เหตุผล: {notification.rejection_reason}
+                                      </p>
+                                    )}
+                                    <p className="text-xs text-gray-400 mt-1">
+                                      {new Date(notification.approved_at || notification.created_at).toLocaleDateString('th-TH')}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {/* Mobile Auth */}
-                  <Link
-                    href="/login"
-                    className="sm:hidden px-4 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors text-sm font-medium"
-                  >
-                    เข้าสู่ระบบ
-                  </Link>
-                </>
-              ) : (
-                <div className="relative">
+                )}
+
+                {/* โปรไฟล์ */}
+                <div className="relative" ref={profileRef}>
                   <button
-                    onClick={() => setIsProfileOpen((v) => !v)}
-                    className="flex items-center space-x-2 sm:space-x-3 p-2 rounded-full hover:bg-gray-50 transition-colors"
-                    aria-haspopup="menu"
-                    aria-expanded={isProfileOpen}
+                    onClick={() => setIsProfileOpen(!isProfileOpen)}
+                    className="flex items-center space-x-2 p-1 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
                       {user.email ? user.email.charAt(0).toUpperCase() : 'U'}
                     </div>
-                    <span className="hidden sm:block text-sm font-medium text-gray-700">
-                      {user.email?.split('@')[0]}
-                    </span>
                     <svg
-                      className={`w-4 h-4 text-gray-500 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`}
+                      className="w-4 h-4 text-gray-500"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
-                      aria-hidden="true"
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
@@ -199,9 +215,12 @@ export default function NavBar() {
                         {(user.role === 'admin' || user.role === 'president') && (
                           <Link
                             href="/dashboard"
-                            className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
-                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+                            onClick={() => setIsProfileOpen(false)}
                           >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
                             <span className="text-sm font-medium">แผงควบคุม</span>
                           </Link>
                         )}
@@ -224,31 +243,43 @@ export default function NavBar() {
                     </div>
                   )}
                 </div>
-              )}
+              </>
+            ) : (
+              <div className="flex items-center space-x-4">
+                <Link
+                  href="/login"
+                  className="text-gray-700 hover:text-gray-900 transition-colors font-medium"
+                >
+                  เข้าสู่ระบบ
+                </Link>
+                <Link
+                  href="/register"
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 font-medium"
+                >
+                  สมัครสมาชิก
+                </Link>
+              </div>
+            )}
 
-              {/* ปุ่มเมนูมือถือ */}
-              <button
-                onClick={() => setIsMobileMenuOpen((v) => !v)}
-                className="lg:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
-                aria-label="Toggle menu"
-                aria-expanded={isMobileMenuOpen}
-                aria-controls="mobile-menu"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  {isMobileMenuOpen ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  )}
-                </svg>
-              </button>
-            </div>
+            {/* ปุ่มเมนูมือถือ */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="lg:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {isMobileMenuOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                )}
+              </svg>
+            </button>
           </div>
         </div>
 
         {/* เมนูมือถือ */}
         {isMobileMenuOpen && (
-          <div id="mobile-menu" className="lg:hidden mt-4 py-4 border-t border-gray-100">
+          <div className="lg:hidden mt-4 py-4 border-t border-gray-100">
             <div className="space-y-2">
               {NAV_MOBILE.map((link) => (
                 <NavLink key={link.href} href={link.href} label={link.label} mobile />
@@ -257,20 +288,22 @@ export default function NavBar() {
                 <div className="pt-2 border-t border-gray-100 mt-4 space-y-2">
                   <Link
                     href="/register"
-                    className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
-                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="block px-4 py-2 text-center bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 font-medium"
                   >
                     สมัครสมาชิก
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="block px-4 py-2 text-center text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    เข้าสู่ระบบ
                   </Link>
                 </div>
               )}
             </div>
           </div>
         )}
-      </nav>
-
-      {/* === NEW: spacer ด้านล่าง navbar เพื่อดันคอนเทนต์ลงอัตโนมัติ === */}
-      <div aria-hidden="true" style={{ height: navHeight }} />
-    </>
+      </div>
+    </nav>
   );
 }

@@ -34,8 +34,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <Providers>
-      <DashboardNavBar />
-      <main className="p-0">{children}</main>
+      <DashboardNavBar >
+        <main className="p-0">{children}</main>
+      </DashboardNavBar>
     </Providers>
   );
 }

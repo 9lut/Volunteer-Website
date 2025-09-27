@@ -48,10 +48,10 @@ async function _membersByClubIds(ids) {
             u.name,
             u.email,
             u.role AS user_role,
-            cm.role_in_club
+            cm.role
      FROM club_members cm
-     JOIN users u ON u.id = cm.user_id
-     WHERE cm.club_id = ANY($1::int[])
+     JOIN users u ON u.id = cm.user_id::uuid
+     WHERE cm.club_id = ANY($1::uuid[])
      ORDER BY cm.id ASC`,
     [ids]
   );
@@ -64,7 +64,7 @@ async function _membersByClubIds(ids) {
       name: r.name,
       email: r.email,
       role: r.user_role,
-      role_in_club: r.role_in_club,
+      role_in_club: r.role,
     });
     map.set(r.club_id, arr);
   }
@@ -117,9 +117,9 @@ async function _delete(id) {
 
 async function listMembers(clubId) {
   const { rows } = await query(
-    `SELECT u.id, u.name, u.email, u.role AS user_role, cm.role_in_club
+    `SELECT u.id, u.name, u.email, u.role AS user_role, cm.role
      FROM club_members cm
-     JOIN users u ON u.id = cm.user_id
+     JOIN users u ON u.id = cm.user_id::uuid
      WHERE cm.club_id = $1
      ORDER BY cm.id ASC`,
     [clubId]
@@ -129,7 +129,7 @@ async function listMembers(clubId) {
     name: r.name,
     email: r.email,
     role: r.user_role,
-    role_in_club: r.role_in_club,
+    role_in_club: r.role,
   }));
 }
 

@@ -1,4 +1,3 @@
-// src/api/auth.js
 const { Router } = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
@@ -32,7 +31,7 @@ router.post('/register', async (req, res) => {
       role: role || 'student',
     });
 
-    const payload = { id: newUser.id, email: newUser.email, role: newUser.role };
+    const payload = { id: newUser.id, email: newUser.email, role: newUser.role, club_id: null };
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN || '1h',
     });
@@ -55,20 +54,20 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    const user = await Users.find(email); // ต้องคืน { id, email, password, role, name }
+    const user = await Users.find(email); // ต้องคืน { id, email, password, role, name, club_id }
     if (!user) return res.status(401).json({ message: 'Invalid email or password' });
 
     const ok = await bcrypt.compare(password, user.password);
     if (!ok) return res.status(401).json({ message: 'Invalid email or password' });
 
-    const payload = { id: user.id, email: user.email, role: user.role };
+    const payload = { id: user.id, email: user.email, role: user.role, club_id: user.club_id ?? null };
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN || '1h',
     });
 
     return res.json({
       token,
-      user: { id: user.id, email: user.email, role: user.role, name: user.name },
+      user: { id: user.id, email: user.email, role: user.role, name: user.name, club_id: user.club_id ?? null },
     });
   } catch (e) {
     console.error(e);

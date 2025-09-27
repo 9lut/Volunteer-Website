@@ -43,6 +43,7 @@ const fetcher = (url: string) => api.get(url).then(r => r.data);
 export default function ClubsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const isPresident = user?.role === 'president';
 
   const { data, isLoading, mutate } = useSWR<Club[]>(
     '/api/clubs?include=members',
@@ -209,15 +210,17 @@ export default function ClubsPage() {
   const totalCount = filtered.length;
 
   return (
-    <div className="min-h-screen bg-white md:bg-emerald-50/40 w-full lg:pl-64">
+    <div className="min-h-screen bg-white md:bg-emerald-50/40 w-full">
       {/* Header */}
       <div className="mx-auto max-w-6xl px-4 pt-4 sm:pt-6">
         <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-5 sm:p-6 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-xl sm:text-2xl font-semibold text-emerald-900">จัดการชมรม</h1>
+              <h1 className="text-xl sm:text-2xl font-semibold text-emerald-900">
+                {isAdmin ? 'จัดการชมรม' : 'สมาชิกชมรมของฉัน'}
+              </h1>
               <p className="mt-1 text-sm text-emerald-700/80">
-                สร้างและจัดการชมรมของคุณ รวมถึงสมาชิกและรายละเอียดต่างๆ
+                {isAdmin ? 'สร้างและจัดการชมรม รวมถึงสมาชิกและรายละเอียดต่างๆ' : 'ดูรายชื่อสมาชิกของชมรมที่คุณเป็นประธาน'}
               </p>
             </div>
             <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -305,7 +308,7 @@ export default function ClubsPage() {
                       <th className="py-2.5 pr-3 pl-3 sm:pl-4 text-emerald-900 font-semibold">ชื่อชมรม</th>
                       <th className="py-2.5 pr-3 text-emerald-900 font-semibold">รายละเอียด</th>
                       <th className="py-2.5 pr-3 text-emerald-900 font-semibold">สมาชิก</th>
-                      <th className="py-2.5 pr-3 text-right text-emerald-900 font-semibold">การจัดการ</th>
+                      {isAdmin && (<th className="py-2.5 pr-3 text-right text-emerald-900 font-semibold">การจัดการ</th>)}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-emerald-100">
@@ -330,33 +333,21 @@ export default function ClubsPage() {
                               )}
                             </div>
                           ) : (
-                            <span className="text-emerald-600/60">—</span>
+                            <span className="text-emerald-700/70">—</span>
                           )}
                         </td>
-                        <td className="py-2.5 pr-3">
-                          <div className="flex items-center gap-2 justify-end">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openEdit(c)}
-                              className="border-emerald-300 text-emerald-800 hover:bg-emerald-50"
-                            >
-                              <Pencil className="mr-1.5 h-4 w-4" />
-                              ดู/แก้ไข
-                            </Button>
-                            {isAdmin && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => removeClub(c)}
-                                className="border-red-300 text-red-800 hover:bg-red-50"
-                              >
-                                <Trash2 className="mr-1.5 h-4 w-4" />
-                                ลบ
+                        {isAdmin && (
+                          <td className="py-2.5 pr-3 text-right">
+                            <div className="inline-flex gap-2">
+                              <Button variant="outline" size="sm" onClick={() => openEdit(c)} className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                                <Pencil className="h-4 w-4 mr-1" /> แก้ไข
                               </Button>
-                            )}
-                          </div>
-                        </td>
+                              <Button variant="outline" size="sm" onClick={() => removeClub(c)} className="border-red-200 text-red-700 hover:bg-red-50">
+                                <Trash2 className="h-4 w-4 mr-1" /> ลบ
+                              </Button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

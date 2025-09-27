@@ -14,7 +14,7 @@ export default function ActivityGallery({ activityId }:{ activityId: number }) {
           {/* ถ้าไม่อยาก optimize ก็ใช้ <img src=...> ได้ */}
           <Image
             src={img.image_url}
-            alt=""
+            alt={`Activity gallery image ${img.id}`}
             fill
             sizes="(max-width:768px) 50vw, 33vw"
             className="object-cover"

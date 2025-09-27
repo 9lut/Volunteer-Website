@@ -1,4 +1,3 @@
-// lib/auth.ts
 import type { NextAuthOptions } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { getServerSession } from 'next-auth';
@@ -18,7 +17,7 @@ export const authOptions: NextAuthOptions = {
           const { data } = await api.post('/api/auth/login', {
             email: creds?.email,
             password: creds?.password,
-          }); // backend ตอบ { token, user }
+          });
           return { ...data.user, backendToken: data.token } as any;
         } catch {
           return null;
@@ -45,6 +44,7 @@ export const authOptions: NextAuthOptions = {
           email: (user as any).email,
           role: (user as any).role,
           name: (user as any).name,
+          club_id: (user as any).club_id,
         };
       }
       return token as any;

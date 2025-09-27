@@ -1,28 +1,24 @@
-// src/api/users_me.js
-const { Router } = require('express');
-const router = new Router();
-
+const express = require('express');
 const { requireAuth } = require('../middlewares/auth');
-const Reg = require('../persistence/registrations');
+const Registrations = require('../persistence/registrations');
 
-// NOTE: ไฟล์นี้ถูก mount ที่ /api/users/me ใน server.js (ดูหัวข้อ #3)
-router.get('/', requireAuth, async (req, res) => {
-  return res.json({
-    id: req.user.id,
-    email: req.user.email,
-    role: req.user.role,
-    club_id: req.user.club_id ?? null,
-  });
-});
+const router = express.Router();
 
-// ประวัติการลงทะเบียนกิจกรรมของ “ฉัน”
+// GET /api/users/me/registrations - รายการการลงทะเบียนของ user ที่ล็อกอินอยู่
 router.get('/registrations', requireAuth, async (req, res) => {
   try {
-    const rows = await Reg.listByUserWithActivity(req.user.id);
-    return res.json(rows);
-  } catch (e) {
-    console.error('GET /api/users/me/registrations error:', e);
-    return res.status(500).json({ message: 'Failed to get registrations' });
+    console.log('GET /api/users/me/registrations called');
+    console.log('User ID:', req.user.id);
+    console.log('User role:', req.user.role);
+    
+    const registrations = await Registrations.listByUserWithActivity(req.user.id);
+    console.log('Registrations found:', registrations ? registrations.length : 0);
+    console.log('Registrations data:', JSON.stringify(registrations, null, 2));
+    
+    res.json(registrations || []);
+  } catch (error) {
+    console.error('Error fetching user registrations:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 
