@@ -6,12 +6,15 @@ function toDate(x) {
   return x == null ? null : x;
 }
 
-/** คอลัมน์ฐาน + cover_url (เลือก is_cover ก่อน, ไม่งั้นรูปแรก) */
+/** คอลัมน์ฐาน + cover_url (เลือก is_cover ก่อน, ไม่งั้นรูปแรก) + ข้อมูลชมรม */
 const BASE_COLS = `
-  id, name, description, start_date, end_date, location, max_participants,
-  created_by, status, created_at, updated_at, club_id,
-  registration_start_date, registration_end_date, registration_deadline,
-  start_time, end_time, registration_start_time, registration_end_time,
+  activities.id, activities.name, activities.description, activities.start_date, activities.end_date, 
+  activities.location, activities.max_participants, activities.created_by, activities.status, 
+  activities.created_at, activities.updated_at, activities.club_id,
+  activities.registration_start_date, activities.registration_end_date, activities.registration_deadline,
+  activities.start_time, activities.end_time, activities.registration_start_time, activities.registration_end_time,
+  clubs.name as club_name,
+  clubs.description as club_description,
   COALESCE(
     (
       SELECT ai1.image_url
@@ -94,23 +97,59 @@ async function create(data) {
  * @param {'created_at'|'updated_at'|'start_date'|'id'} [filters.sort]
  * @param {number|null} [filters.club_id]  // ถ้ากำหนด จะกรองเฉพาะชมรมนั้น
  */
-async function findAll({ status = 'approved', limit = 0, sort = '', club_id = null } = {}) {
+async function findAll({ 
+  status = 'approved', 
+  limit = 0, 
+  sort = '', 
+  club_id = null,
+  search = '',
+  location = '',
+  dateStart = '',
+  dateEnd = ''
+} = {}) {
   const params = [];
   const where = [];
-  let sql = `SELECT ${BASE_COLS} FROM activities`;
+  let sql = `SELECT ${BASE_COLS} FROM activities LEFT JOIN clubs ON activities.club_id = clubs.id`;
 
   if (status && status !== 'all') {
     params.push(status);
-    where.push(`status = $${params.length}`);
+    where.push(`activities.status = $${params.length}`);
   }
 
   if (Array.isArray(club_id) && club_id.length > 0) {
     const placeholders = club_id.map((_, i) => `$${params.length + i + 1}`).join(',');
     params.push(...club_id);
-    where.push(`club_id IN (${placeholders})`);
+    where.push(`activities.club_id IN (${placeholders})`);
   } else if (club_id) {
     params.push(club_id);
-    where.push(`club_id = $${params.length}`);
+    where.push(`activities.club_id = $${params.length}`);
+  }
+
+  // Text search in name, description, and club name
+  if (search && search.trim()) {
+    params.push(`%${search.trim()}%`);
+    where.push(`(
+      activities.name ILIKE $${params.length} OR 
+      activities.description ILIKE $${params.length} OR 
+      clubs.name ILIKE $${params.length}
+    )`);
+  }
+
+  // Location filter
+  if (location && location.trim()) {
+    params.push(`%${location.trim()}%`);
+    where.push(`activities.location ILIKE $${params.length}`);
+  }
+
+  // Date range filter
+  if (dateStart && dateStart.trim()) {
+    params.push(dateStart.trim());
+    where.push(`activities.start_date >= $${params.length}`);
+  }
+
+  if (dateEnd && dateEnd.trim()) {
+    params.push(dateEnd.trim());
+    where.push(`activities.start_date <= $${params.length}`);
   }
 
   if (where.length) sql += ` WHERE ${where.join(' AND ')}`;
@@ -118,9 +157,9 @@ async function findAll({ status = 'approved', limit = 0, sort = '', club_id = nu
   // allowlist คอลัมน์สำหรับ sort
   const allowSort = new Set(['created_at', 'updated_at', 'start_date', 'id']);
   const orderCol = allowSort.has(sort) ? sort : 'id';
-  const orderExpr = orderCol === 'start_date' ? 'COALESCE(start_date, created_at)' : orderCol;
+  const orderExpr = orderCol === 'start_date' ? 'COALESCE(activities.start_date, activities.created_at)' : `activities.${orderCol}`;
 
-  sql += ` ORDER BY ${orderExpr} DESC, id DESC`;
+  sql += ` ORDER BY ${orderExpr} DESC, activities.id DESC`;
 
   if (limit && Number.isFinite(limit) && limit > 0) {
     params.push(limit);
@@ -131,10 +170,36 @@ async function findAll({ status = 'approved', limit = 0, sort = '', club_id = nu
   return rows;
 }
 
+/** ดึงรายชื่อชมรมที่มีกิจกรรม (สำหรับ filter) */
+async function getActiveClubs() {
+  const { rows } = await query(`
+    SELECT DISTINCT clubs.id, clubs.name
+    FROM activities 
+    JOIN clubs ON activities.club_id = clubs.id
+    WHERE activities.status = 'approved'
+      AND clubs.name IS NOT NULL
+    ORDER BY clubs.name ASC
+  `);
+  return rows;
+}
+
+/** ดึงรายชื่อสถานที่ที่มีกิจกรรม (สำหรับ filter) */
+async function getActiveLocations() {
+  const { rows } = await query(`
+    SELECT DISTINCT location
+    FROM activities
+    WHERE status = 'approved'
+      AND location IS NOT NULL
+      AND location != ''
+    ORDER BY location ASC
+  `);
+  return rows.map(row => row.location);
+}
+
 /** ดึงกิจกรรมตาม id */
 async function findById(id) {
   const { rows } = await query(
-    `SELECT ${BASE_COLS} FROM activities WHERE id = $1 LIMIT 1`,
+    `SELECT ${BASE_COLS} FROM activities LEFT JOIN clubs ON activities.club_id = clubs.id WHERE activities.id = $1 LIMIT 1`,
     [id]
   );
   return rows[0] || null;
@@ -267,4 +332,6 @@ module.exports = {
   delete: _delete,
   getStats,
   setCover,
+  getActiveClubs,
+  getActiveLocations,
 };

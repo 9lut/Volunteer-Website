@@ -24,7 +24,7 @@ function LoginContent() {
   const isProtected = (p: string) => p.startsWith('/admin') || p.startsWith('/dashboard');
   const roleAllowsPath = (role: string | undefined, p: string) => {
     if (p.startsWith('/admin')) return role === 'admin';
-    if (p.startsWith('/dashboard')) return role === 'admin' || role === 'president';
+    if (p.startsWith('/dashboard')) return role === 'president';
     return true;
   };
   const isSafeInternalPath = (p: string | null) => !!p && p.startsWith('/');

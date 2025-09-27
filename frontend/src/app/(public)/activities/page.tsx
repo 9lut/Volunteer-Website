@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { useActivities } from '@/hooks/useActivities';
 import ActivityCard from '@/components/ActivityCard';
+import ActivityFilter, { FilterOptions } from '@/components/ActivityFilter';
 import type { Activity } from '@/types/activity';
 import { useToast } from '@/components/ui/toast';
 
@@ -16,17 +17,46 @@ function ActivitiesContent() {
   const searchParams = useSearchParams();
   const toast = useToast();
 
-  const q = (searchParams.get('q') || '').trim();
-  const { activities = [], isLoading, error } = useActivities('approved');
+  // Initialize filters from URL params
+  const [filters, setFilters] = useState<FilterOptions>({
+    search: searchParams.get('q') || '',
+    location: searchParams.get('location') || '',
+    dateStart: searchParams.get('dateStart') || '',
+    dateEnd: searchParams.get('dateEnd') || '',
+    clubId: searchParams.get('clubId') || '',
+  });
 
-  const [nameInput, setNameInput] = useState(q);
+  // Applied filters (what is actually sent to API)
+  const [appliedFilters, setAppliedFilters] = useState<FilterOptions>({
+    search: searchParams.get('q') || '',
+    location: searchParams.get('location') || '',
+    dateStart: searchParams.get('dateStart') || '',
+    dateEnd: searchParams.get('dateEnd') || '',
+    clubId: searchParams.get('clubId') || '',
+  });
+
   const [page, setPage] = useState(1);
+  const [isApplyingFilters, setIsApplyingFilters] = useState(false);
 
-  // sync input เมื่อ q ใน URL เปลี่ยน + reset page
+  // Use activities hook with applied filters only
+  const { activities = [], isLoading, error, mutate } = useActivities({
+    status: 'approved',
+    ...appliedFilters
+  });
+
+  // sync filters เมื่อ URL parameters เปลี่ยน
   useEffect(() => {
-    setNameInput(q);
+    const newFilters = {
+      search: searchParams.get('q') || '',
+      location: searchParams.get('location') || '',
+      dateStart: searchParams.get('dateStart') || '',
+      dateEnd: searchParams.get('dateEnd') || '',
+      clubId: searchParams.get('clubId') || '',
+    };
+    setFilters(newFilters);
+    setAppliedFilters(newFilters);
     setPage(1);
-  }, [q]);
+  }, [searchParams]);
 
   // แสดง error toast เมื่อโหลดข้อมูลไม่สำเร็จ
   useEffect(() => {
@@ -35,14 +65,35 @@ function ActivitiesContent() {
     }
   }, [error, toast]);
 
-  // กรองตาม q
-  const filtered = useMemo(() => {
-    const term = q.toLowerCase();
-    return activities.filter((a: AnyActivity) => {
-      const text = `${a?.name || ''} ${a?.description || ''}`.toLowerCase();
-      return !term || text.includes(term);
-    });
-  }, [activities, q]);
+  const handleFiltersChange = (newFilters: FilterOptions) => {
+    setFilters(newFilters);
+  };
+
+  const handleApplyFilters = async () => {
+    setIsApplyingFilters(true);
+    setPage(1);
+
+    // Update applied filters
+    setAppliedFilters(filters);
+
+    // Update URL with new filters
+    const params = new URLSearchParams();
+    if (filters.search && filters.search.trim()) params.set('q', filters.search.trim());
+    if (filters.location && filters.location.trim()) params.set('location', filters.location.trim());
+    if (filters.dateStart && filters.dateStart.trim()) params.set('dateStart', filters.dateStart.trim());
+    if (filters.dateEnd && filters.dateEnd.trim()) params.set('dateEnd', filters.dateEnd.trim());
+    if (filters.clubId && filters.clubId.trim()) params.set('clubId', filters.clubId.trim());
+
+    const queryString = params.toString();
+    router.push(`/activities${queryString ? `?${queryString}` : ''}`);
+
+    // Trigger data refetch
+    await mutate();
+    setIsApplyingFilters(false);
+  };
+
+  // Since we're using backend filtering, we don't need client-side filtering
+  const filtered = activities;
 
   // เรียงล่าสุดก่อน (ถ้ามีวันที่)
   const sorted = useMemo(() => {
@@ -70,12 +121,6 @@ function ActivitiesContent() {
 
   const goPage = (p: number) => setPage(Math.min(Math.max(1, p), totalPages));
 
-  const onSubmitSearch = () => {
-    const term = nameInput.trim();
-    if (term) router.push(`/activities?q=${encodeURIComponent(term)}`);
-    else router.push('/activities');
-  };
-
   if (error) {
     return (
       <main className="min-h-[60vh] grid place-items-center">
@@ -88,39 +133,25 @@ function ActivitiesContent() {
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">
       <header className="bg-gradient-to-r from-green-600 to-emerald-600 text-white py-10">
         <div className="container mx-auto px-4">
-          <h1 className="text-3xl sm:text-5xl font-extrabold">ผลการค้นหากิจกรรม</h1>
+          <h1 className="text-3xl sm:text-5xl font-extrabold">ค้นหากิจกรรม</h1>
           <p className="text-green-100 mt-2">
-            {q ? <>คำค้น: <span className="font-semibold">"{q}"</span></> : 'แสดงทุกกิจกรรม'}
+            {Object.values(appliedFilters).some(v => v && v.trim()) 
+              ? 'แสดงผลตามตัวกรอง' 
+              : 'แสดงทุกกิจกรรม'
+            }
           </p>
         </div>
       </header>
 
-      {/* แถบค้นหา */}
-      <section className="py-4 sm:py-6 bg-white/70 sticky top-0 z-30 backdrop-blur border-b border-green-100">
-        <div className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto bg-white border border-green-200 rounded-2xl p-3 sm:p-4 shadow-sm">
-            <div className="flex gap-3">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  aria-label="ค้นหากิจกรรม"
-                  type="text"
-                  placeholder="พิมพ์คำที่ต้องการ แล้วกดค้นหา"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && onSubmitSearch()}
-                />
-              </div>
-              <button
-                onClick={onSubmitSearch}
-                className="shrink-0 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white px-4 sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2"
-              >
-                <Search className="w-5 h-5" />
-                <span className="hidden sm:inline">ค้นหา</span>
-              </button>
-            </div>
-          </div>
+      {/* Filter Section */}
+      <section className="py-6 bg-white/70 backdrop-blur border-b border-green-100">
+        <div className="container mx-auto px-4 max-w-6xl">
+          <ActivityFilter
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+            onApplyFilters={handleApplyFilters}
+            isLoading={isApplyingFilters}
+          />
         </div>
       </section>
 

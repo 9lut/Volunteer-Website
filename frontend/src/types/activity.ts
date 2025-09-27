@@ -22,6 +22,11 @@ export type Activity = {
       created_at: string;
       updated_at: string;
       
+      // Club information
+      club_id?: string | null;
+      club_name?: string | null;
+      club_description?: string | null;
+      
       // Registration period
       registration_start_date?: string | null;
       registration_end_date?: string | null;

@@ -132,6 +132,13 @@ router.get('/', optionalAuth, async (req, res) => {
 
     const limit = Math.min(parseInt(String(req.query.limit || '0'), 10) || 0, 100);
     const sort = String(req.query.sort || '');
+    
+    // Additional filtering parameters
+    const searchText = req.query.search ? String(req.query.search).trim() : '';
+    const location = req.query.location ? String(req.query.location).trim() : '';
+    const dateStart = req.query.dateStart ? String(req.query.dateStart) : '';
+    const dateEnd = req.query.dateEnd ? String(req.query.dateEnd) : '';
+    const clubId = req.query.clubId ? String(req.query.clubId) : '';
 
     // กรณี admin: เห็นทั้งหมด (ไม่กรองชมรม)
     // กรณี president: 
@@ -146,11 +153,29 @@ router.get('/', optionalAuth, async (req, res) => {
       clubFilter = clubIds;
     }
 
+    // ถ้ามี clubId filter และไม่ขัดแย้งกับสิทธิ์
+    if (clubId && isValidUuid(clubId)) {
+      if (clubFilter) {
+        // ตรวจสอบว่า clubId ที่ขออยู่ในรายการที่มีสิทธิ์หรือไม่
+        if (clubFilter.includes(clubId)) {
+          clubFilter = [clubId];
+        } else {
+          return res.json([]); // ไม่มีสิทธิ์ดูชมรมนี้
+        }
+      } else {
+        clubFilter = [clubId];
+      }
+    }
+
     const list = await Activity.findAll({
       status,
       limit,
       sort,
       club_id: clubFilter,
+      search: searchText,
+      location: location,
+      dateStart: dateStart,
+      dateEnd: dateEnd,
     });
 
     return res.json(list);
@@ -167,9 +192,27 @@ router.get('/stats', requireAuth, authorize(['admin', 'president']), async (req,
     const club_id = isPresident(req.user) ? (req.user.club_id ?? null) : null;
     const stats = await Activity.getStats({ club_id });
     return res.json(stats);
+  } catch (error) {
+    console.error('GET /api/activities/stats error:', error);
+    return res.status(500).json({ message: 'Failed to get stats' });
+  }
+});
+
+// Get filter options (clubs and locations)
+router.get('/filters', async (req, res) => {
+  try {
+    const [clubs, locations] = await Promise.all([
+      Activity.getActiveClubs(),
+      Activity.getActiveLocations()
+    ]);
+    
+    return res.json({
+      clubs: clubs || [],
+      locations: locations || []
+    });
   } catch (e) {
-    console.error('GET /api/activities/stats error:', e);
-    return res.status(500).json({ message: 'Failed to get activity stats' });
+    console.error('GET /api/activities/filters error:', e);
+    return res.status(500).json({ message: 'Failed to get filter options' });
   }
 });
 

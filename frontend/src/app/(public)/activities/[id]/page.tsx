@@ -222,9 +222,20 @@ export default function ActivityDetail() {
             {/* Title & Status */}
             <div className="space-y-3">
               <div className="flex items-start justify-between gap-4">
-                <h1 className="text-3xl font-bold text-gray-900 leading-tight">
-                  {activity.name}
-                </h1>
+                <div className="flex-1">
+                  <h1 className="text-3xl font-bold text-gray-900 leading-tight">
+                    {activity.name}
+                  </h1>
+                  {activity.club_name && (
+                    <div className="mt-2 flex items-center text-sm text-gray-600">
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      <span className="font-medium">จัดโดย:</span>
+                      <span className="ml-1">{activity.club_name}</span>
+                    </div>
+                  )}
+                </div>
                 <Badge className={`${getStatusColor(activity.status)} px-3 py-1`}>
                   {getStatusText(activity.status)}
                 </Badge>
@@ -250,6 +261,26 @@ export default function ActivityDetail() {
             <Card className="border-0 shadow-sm sticky top-6">
               <CardContent className="p-6 space-y-6">
                 <h3 className="text-lg font-semibold text-gray-900">ข้อมูลกิจกรรม</h3>
+
+                {/* Club Organizer */}
+                {activity.club_name && (
+                  <div className="flex items-start space-x-3">
+                    <svg className="w-5 h-5 text-indigo-600 mt-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900">ชมรมผู้จัด</p>
+                      <p className="text-sm text-gray-600 mt-1 font-medium">
+                        {activity.club_name}
+                      </p>
+                      {activity.club_description && (
+                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                          {activity.club_description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Registration Period */}
                 {(activity.registration_start_date || activity.registration_end_date) && (
