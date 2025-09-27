@@ -6,15 +6,20 @@ import { useAuth } from '@/hooks/useAuth';
 import { Bell } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 import { useNotifications } from '@/hooks/useNotifications';
+import { Button } from '@/components/ui/button';
 
 const NAV_LINKS = [
   { href: '/', label: 'หน้าแรก' },
   { href: '/activities', label: 'กิจกรรม' },
+  { href: '/about', label: 'เกี่ยวกับเรา' },
+  { href: '/contact', label: 'ติดต่อเรา' },
 ];
 
 const NAV_MOBILE = [
   { href: '/', label: 'หน้าแรก' },
   { href: '/activities', label: 'กิจกรรม' },
+  { href: '/about', label: 'เกี่ยวกับเรา' },
+  { href: '/contact', label: 'ติดต่อเรา' },
 ];
 
 function NavLink({ href, label, mobile = false }: { href: string; label: string; mobile?: boolean }) {
@@ -72,7 +77,7 @@ export default function NavBar() {
             </Link>
 
             {/* เมนูหลัก (Desktop) */}
-            <div className="hidden lg:flex items-center space-x-4">
+            <div className="hidden lg:flex items-center space-x-8">
               {NAV_LINKS.map((link) => (
                 <NavLink key={link.href} href={link.href} label={link.label} />
               ))}
@@ -85,7 +90,7 @@ export default function NavBar() {
               <>
                 {user.role === 'student' && (
                   <div className="relative" ref={notificationRef}>
-                    <button
+                    <Button
                       onClick={() => setIsNotificationOpen(!isNotificationOpen)}
                       className="relative p-2 text-gray-600 hover:text-gray-900 transition-colors"
                     >
@@ -95,7 +100,7 @@ export default function NavBar() {
                           {unreadCount > 9 ? '9+' : unreadCount}
                         </span>
                       )}
-                    </button>
+                    </Button>
 
                     {/* แสดง dropdown */}
                     {isNotificationOpen && (
@@ -156,7 +161,7 @@ export default function NavBar() {
 
                 {/* โปรไฟล์ */}
                 <div className="relative" ref={profileRef}>
-                  <button
+                  <Button
                     onClick={() => setIsProfileOpen(!isProfileOpen)}
                     className="flex items-center space-x-2 p-1 rounded-lg hover:bg-gray-50 transition-colors"
                   >
@@ -171,7 +176,7 @@ export default function NavBar() {
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
-                  </button>
+                  </Button>
 
                   {isProfileOpen && (
                     <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-100 py-2 animate-in slide-in-from-top-1 duration-200">
@@ -238,7 +243,7 @@ export default function NavBar() {
                           </Link>
                         )}
                         <hr className="my-2 border-gray-100" />
-                        <button
+                        <Button
                           onClick={async () => {
                             try {
                               setIsProfileOpen(false);
@@ -259,14 +264,14 @@ export default function NavBar() {
                             />
                           </svg>
                           <span className="text-sm font-medium">ออกจากระบบ</span>
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   )}
                 </div>
               </>
             ) : (
-              <div className="flex items-center space-x-4">
+              <div className="hidden sm:flex items-center space-x-4">
                 <Link
                   href="/login"
                   className="text-gray-700 hover:text-gray-900 transition-colors font-medium"
@@ -283,7 +288,7 @@ export default function NavBar() {
             )}
 
             {/* ปุ่มเมนูมือถือ */}
-            <button
+            <Button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="lg:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
             >
@@ -294,7 +299,7 @@ export default function NavBar() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 )}
               </svg>
-            </button>
+            </Button>
           </div>
         </div>
 

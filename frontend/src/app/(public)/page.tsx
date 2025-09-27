@@ -8,6 +8,8 @@ import ActivityCard from '@/components/ActivityCard';
 import ActivityFilter, { FilterOptions } from '@/components/ActivityFilter';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/toast';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 function SkeletonCard() {
   return (
@@ -200,7 +202,7 @@ export default function HomePage() {
       </section>
 
       {/* CTA */}
-      <section className="py-16 sm:py-20 bg-gradient-to-r from-green-600 to-emerald-600 relative overflow-hidden">
+      <section className="py-16 sm:py-20 bg-gradient-to-r from-green-400 to-gray-100 relative overflow-hidden">
         <div className="container mx-auto px-4 text-center relative">
           <h2 className="text-3xl sm:text-5xl font-extrabold text-white mb-4 sm:mb-6">
             เริ่มต้นสร้างการเปลี่ยนแปลง <span className="text-yellow-300">วันนี้!</span>
@@ -209,12 +211,11 @@ export default function HomePage() {
             เข้าร่วมชุมชนอาสาสมัครและร่วมสร้างสรรค์สังคมที่ดีกว่าไปด้วยกัน
           </p>
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-            <button className="bg-white text-green-700 px-6 sm:px-8 py-3 sm:py-4 rounded-xl text-base sm:text-lg font-semibold hover:bg-green-50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
-              ลงทะเบียนเป็นอาสาสมัคร
-            </button>
-            <button className="border-2 border-white text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl text-base sm:text-lg font-semibold hover:bg-white hover:text-green-700 transition-all duration-300 hover:scale-[1.02]">
-              สร้างกิจกรรม
-            </button>
+            <Link href="/register">
+              <Button className="cursor-pointer bg-white text-green-700 px-6 sm:px-8 py-3 sm:py-4 rounded-xl text-base sm:text-lg font-semibold hover:bg-green-50 transition-all duration-300 hover:scale-[1.02] shadow-lg">
+                ลงทะเบียนเป็นอาสาสมัคร
+              </Button>
+            </Link>
           </div>
         </div>
       </section>

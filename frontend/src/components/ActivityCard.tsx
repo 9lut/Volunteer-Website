@@ -70,9 +70,9 @@ export default function ActivityCard({ a }: { a: Activity }) {
   const isActivityFull = (a as any).max_participants && (a as any).current_participants >= (a as any).max_participants;
 
   return (
-    <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 bg-white border border-gray-200 hover:border-blue-300 group">
+    <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 bg-white border border-gray-200 hover:border-green-300 group">
       {/* Activity Image */}
-      <div className="relative h-48 overflow-hidden bg-gradient-to-br from-blue-100 to-indigo-100">
+      <div className="relative h-48 overflow-hidden bg-gradient-to-br from-green-100 to-indigo-100">
         {a.cover_url ? (
           <Image 
             src={toAbsoluteImageUrl(a.cover_url)} 
@@ -82,8 +82,8 @@ export default function ActivityCard({ a }: { a: Activity }) {
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
         ) : (
-          <div className="flex items-center justify-center h-full bg-gradient-to-br from-blue-100 to-indigo-100">
-            <Flag className="w-16 h-16 text-blue-400" />
+          <div className="flex items-center justify-center h-full bg-gradient-to-br from-green-100 to-indigo-100">
+            <Flag className="w-16 h-16 text-green-400" />
           </div>
         )}
         
@@ -101,7 +101,7 @@ export default function ActivityCard({ a }: { a: Activity }) {
             </Badge>
           )}
           {isUpcoming && !isOngoing && (
-            <Badge variant="secondary" className="bg-blue-500 text-white border-0">
+            <Badge variant="secondary" className="bg-green-500 text-white border-0">
               <Clock className="w-3 h-3 mr-1" />
               เร็วๆ นี้
             </Badge>
@@ -116,7 +116,7 @@ export default function ActivityCard({ a }: { a: Activity }) {
       </div>
 
       <CardHeader className="p-4 pb-2">
-        <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 group-hover:text-blue-700 transition-colors">
+        <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 group-hover:text-green-700 transition-colors">
           {a.name}
         </h3>
         
@@ -178,9 +178,9 @@ export default function ActivityCard({ a }: { a: Activity }) {
 
         {/* Activity Date and Time */}
         <div className="flex items-center text-sm text-gray-600">
-          <CalendarDays className="w-4 h-4 mr-2 text-blue-500" />
+          <CalendarDays className="w-4 h-4 mr-2 text-green-500" />
           <div className="flex flex-col">
-            <span className="font-medium text-xs text-blue-600 mb-1">วันที่จัดกิจกรรม:</span>
+            <span className="font-medium text-xs text-green-600 mb-1">วันที่จัดกิจกรรม:</span>
             <span>
               {start ? formatDate(a.start_date) : 'ไม่ระบุวันที่'}
               {a.start_time && (
@@ -273,7 +273,7 @@ export default function ActivityCard({ a }: { a: Activity }) {
 
       <CardFooter className="p-4 pt-0">
         <Link href={`/activities/${a.id}`} className="w-full">
-          <Button variant="outline" className="w-full group-hover:bg-blue-50 group-hover:border-blue-300 transition-colors">
+          <Button className="cursor-pointer w-full bg-green-200 group-hover:bg-green-300 group-hover:border-green-300 transition-colors">
             <Eye className="w-4 h-4 mr-2" />
             ดูรายละเอียด
           </Button>

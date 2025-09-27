@@ -90,7 +90,7 @@ export default function ActivityFilter({
               placeholder={placeholder}
               value={filters.search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   onApplyFilters();
@@ -102,7 +102,7 @@ export default function ActivityFilter({
           <Button
             onClick={() => setIsExpanded(!isExpanded)}
             variant="outline"
-            className="px-4 py-3 rounded-xl border-gray-300 hover:bg-gray-50 relative"
+            className="cursor-pointer px-4 py-3 rounded-xl border-gray-300 hover:bg-gray-50 relative"
           >
             <Filter className="w-4 h-4 mr-2" />
             ตัวกรอง
@@ -118,7 +118,7 @@ export default function ActivityFilter({
           
           <Button
             onClick={onApplyFilters}
-            className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+            className="cursor-pointer px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white"
             disabled={isLoading}
           >
             {isLoading ? (
@@ -145,7 +145,7 @@ export default function ActivityFilter({
                 <select
                   value={filters.location}
                   onChange={(e) => handleFilterChange('location', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   disabled={isLoadingOptions}
                 >
                   <option value="">ทุกสถานที่</option>
@@ -166,7 +166,7 @@ export default function ActivityFilter({
                 <select
                   value={filters.clubId}
                   onChange={(e) => handleFilterChange('clubId', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   disabled={isLoadingOptions}
                 >
                   <option value="">ทุกชมรม</option>
@@ -188,7 +188,7 @@ export default function ActivityFilter({
                   type="date"
                   value={filters.dateStart}
                   onChange={(e) => handleFilterChange('dateStart', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
 
@@ -202,7 +202,7 @@ export default function ActivityFilter({
                   type="date"
                   value={filters.dateEnd}
                   onChange={(e) => handleFilterChange('dateEnd', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
             </div>
@@ -233,16 +233,9 @@ export default function ActivityFilter({
                   onClick={() => setIsExpanded(false)}
                   variant="ghost"
                   size="sm"
+                  className='cursor-pointer'
                 >
                   ซ่อนตัวกรอง
-                </Button>
-                <Button
-                  onClick={onApplyFilters}
-                  size="sm"
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                  disabled={isLoading}
-                >
-                  {buttonText}
                 </Button>
               </div>
             </div>
@@ -256,12 +249,12 @@ export default function ActivityFilter({
               <Badge variant="secondary" className="flex items-center gap-1">
                 <Search className="w-3 h-3" />
                 ค้นหา: {filters.search}
-                <button
+                <Button
                   onClick={() => handleFilterChange('search', '')}
-                  className="ml-1 hover:text-red-600"
+                  className="cursor-pointer ml-1 hover:text-red-600"
                 >
                   <X className="w-3 h-3" />
-                </button>
+                </Button>
               </Badge>
             )}
             
@@ -269,25 +262,25 @@ export default function ActivityFilter({
               <Badge variant="secondary" className="flex items-center gap-1">
                 <MapPin className="w-3 h-3" />
                 สถานที่: {filters.location}
-                <button
+                <Button
                   onClick={() => handleFilterChange('location', '')}
-                  className="ml-1 hover:text-red-600"
+                  className="cursor-pointer ml-1 hover:text-red-600"
                 >
                   <X className="w-3 h-3" />
-                </button>
+                </Button>
               </Badge>
             )}
             
             {filters.clubId && (
-              <Badge variant="secondary" className="flex items-center gap-1">
+              <Badge variant="secondary" className="cursor-pointer flex items-center gap-1">
                 <Users className="w-3 h-3" />
                 ชมรม: {filterData.clubs.find(c => c.id === filters.clubId)?.name}
-                <button
+                <Button
                   onClick={() => handleFilterChange('clubId', '')}
                   className="ml-1 hover:text-red-600"
                 >
                   <X className="w-3 h-3" />
-                </button>
+                </Button>
               </Badge>
             )}
             
@@ -295,7 +288,7 @@ export default function ActivityFilter({
               <Badge variant="secondary" className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
                 วันที่: {filters.dateStart} {filters.dateStart && filters.dateEnd && '-'} {filters.dateEnd}
-                <button
+                <Button
                   onClick={() => {
                     handleFilterChange('dateStart', '');
                     handleFilterChange('dateEnd', '');
@@ -303,7 +296,7 @@ export default function ActivityFilter({
                   className="ml-1 hover:text-red-600"
                 >
                   <X className="w-3 h-3" />
-                </button>
+                </Button>
               </Badge>
             )}
           </div>
