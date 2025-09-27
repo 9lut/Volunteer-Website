@@ -8,6 +8,7 @@ import { signIn, getSession } from 'next-auth/react';
 import { useToast } from '@/components/ui/toast';
 import { LoadingButton } from '@/components/ui/loading-button';
 import { Eye, EyeOff } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 function LoginContent() {
   const router = useRouter();
@@ -59,7 +60,7 @@ function LoginContent() {
       if (isSafeInternalPath(from) && roleAllowsPath(role, from!)) {
         next = from!;
       } else {
-        if (role === 'admin') next = '/admin';
+        if (role === 'admin') next = '/dashboard';
         else if (role === 'president') next = '/dashboard';
         else next = '/';
       }
@@ -131,14 +132,14 @@ function LoginContent() {
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 pr-10 text-gray-900 placeholder:text-gray-400 outline-none ring-0 transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
                   />
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setShowPwd((v) => !v)}
-                    className="absolute inset-y-0 right-2 my-auto h-8 rounded-md px-2 text-xs text-gray-500 hover:text-gray-700 flex items-center"
+                    className="cursor-pointer absolute inset-y-0 right-2 my-auto h-8 rounded-md px-2 text-xs text-gray-500 hover:text-gray-700 flex items-center"
                     aria-label={showPwd ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
                   >
                     {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -147,7 +148,7 @@ function LoginContent() {
                 type="submit"
                 loading={loading}
                 loadingText="กำลังเข้าสู่ระบบ..."
-                className="group relative inline-flex w-full items-center justify-center rounded-full bg-gray-900 px-5 py-2.5 text-white transition hover:bg-black disabled:opacity-60"
+                className="cursor-pointer relative inline-flex w-full items-center justify-center rounded-full bg-gray-900 px-5 py-2.5 text-white transition hover:bg-black disabled:opacity-60"
               >
                 เข้าสู่ระบบ
               </LoadingButton>

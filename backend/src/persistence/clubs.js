@@ -31,7 +31,7 @@ async function findByIds(ids, { includeMembers = false } = {}) {
   const { rows } = await query(
     `SELECT id, name, description, created_at, updated_at
      FROM clubs
-     WHERE id = ANY($1::int[])
+     WHERE id = ANY($1::uuid[])
      ORDER BY id DESC`,
     [ids]
   );

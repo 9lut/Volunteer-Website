@@ -251,20 +251,75 @@ export default function ActivityDetail() {
               <CardContent className="p-6 space-y-6">
                 <h3 className="text-lg font-semibold text-gray-900">ข้อมูลกิจกรรม</h3>
 
-                {/* Date Range */}
+                {/* Registration Period */}
+                {(activity.registration_start_date || activity.registration_end_date) && (
+                  <div className="flex items-start space-x-3">
+                    <Clock className="w-5 h-5 text-purple-600 mt-1 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900">ช่วงเวลาสมัคร</p>
+                      <div className="text-sm text-gray-600 mt-1 space-y-1">
+                        {activity.registration_start_date && (
+                          <div>
+                            <span className="font-medium">เริ่มสมัคร:</span> {formatDate(activity.registration_start_date)}
+                            {activity.registration_start_time && (
+                              <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
+                                {new Date(`1970-01-01T${activity.registration_start_time}`).toLocaleTimeString('th-TH', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {activity.registration_end_date && (
+                          <div>
+                            <span className="font-medium">ปิดสมัคร:</span> {formatDate(activity.registration_end_date)}
+                            {activity.registration_end_time && (
+                              <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
+                                {new Date(`1970-01-01T${activity.registration_end_time}`).toLocaleTimeString('th-TH', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Activity Date and Time */}
                 <div className="flex items-start space-x-3">
                   <CalendarDays className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900">วันที่</p>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {formatDate(activity.start_date)}
+                    <p className="text-sm font-medium text-gray-900">วันเวลาจัดกิจกรรม</p>
+                    <div className="text-sm text-gray-600 mt-1 space-y-1">
+                      <div>
+                        <span className="font-medium">วันที่:</span> {formatDate(activity.start_date)}
+                        {activity.start_time && (
+                          <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                            เริ่ม {new Date(`1970-01-01T${activity.start_time}`).toLocaleTimeString('th-TH', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        )}
+                      </div>
                       {activity.end_date && activity.start_date !== activity.end_date && (
-                        <>
-                          <br />
-                          ถึง {formatDate(activity.end_date)}
-                        </>
+                        <div>
+                          <span className="font-medium">ถึงวันที่:</span> {formatDate(activity.end_date)}
+                          {activity.end_time && (
+                            <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                              สิ้นสุด {new Date(`1970-01-01T${activity.end_time}`).toLocaleTimeString('th-TH', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          )}
+                        </div>
                       )}
-                    </p>
+                    </div>
                   </div>
                 </div>
 

@@ -44,7 +44,7 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-100 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-emerald-300 border-t-emerald-600 rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">กำลังโหลด...</p>
@@ -54,7 +54,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-100">
+    <div className="min-h-screen">
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
@@ -63,7 +63,7 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
           >
             <h1 className="text-3xl font-bold text-gray-900">
-              สวัสดี {user?.first_name || user?.username} 👋
+              สวัสดี {user?.name || user?.email?.split('@')[0] || 'ผู้ใช้'} 👋
             </h1>
             <p className="text-gray-600 mt-2">
               {user?.role === 'admin' ? 'ยินดีต้อนรับสู่แดชบอร์ดแอดมิน' :

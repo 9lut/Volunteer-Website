@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { api } from '@/lib/axios';
+import { useToast } from '@/components/ui/toast';
 
 interface EditActivityForm {
   name: string;
@@ -13,6 +14,16 @@ interface EditActivityForm {
   end_date: string;
   location: string;
   max_participants: number;
+  
+  // Registration period
+  registration_start_date: string;
+  registration_end_date: string;
+  
+  // Time fields
+  start_time: string;
+  end_time: string;
+  registration_start_time: string;
+  registration_end_time: string;
 }
 
 export default function EditActivityPage() {
@@ -20,6 +31,7 @@ export default function EditActivityPage() {
   const router = useRouter();
   const params = useParams();
   const activityId = params.id;
+  const toast = useToast();
 
   const [activity, setActivity] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -34,6 +46,12 @@ export default function EditActivityPage() {
     end_date: '',
     location: '',
     max_participants: 50,
+    registration_start_date: '',
+    registration_end_date: '',
+    start_time: '',
+    end_time: '',
+    registration_start_time: '',
+    registration_end_time: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -59,6 +77,7 @@ export default function EditActivityPage() {
 
       // ตรวจสอบสิทธิ์การแก้ไข
       if (user?.role !== 'admin' && user?.role !== 'president') {
+        toast.error('คุณไม่มีสิทธิ์แก้ไขกิจกรรม');
         router.push('/dashboard/activities');
         return;
       }
@@ -70,12 +89,13 @@ export default function EditActivityPage() {
           const myClubIds = clubsRes.data.map((club: any) => club.id);
           
           if (!myClubIds.includes(activityData.club_id)) {
-            alert('คุณไม่มีสิทธิ์แก้ไขกิจกรรมนี้');
+            toast.error('คุณไม่มีสิทธิ์แก้ไขกิจกรรมของชมรมนี้');
             router.push('/dashboard/activities');
             return;
           }
         } catch (error) {
           console.error('Error checking club membership:', error);
+          toast.error('เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์');
           router.push('/dashboard/activities');
           return;
         }
@@ -100,9 +120,16 @@ export default function EditActivityPage() {
         end_date: formatDateTime(activityData.end_date),
         location: activityData.location || '',
         max_participants: activityData.max_participants || 50,
+        registration_start_date: formatDateTime(activityData.registration_start_date),
+        registration_end_date: formatDateTime(activityData.registration_end_date),
+        start_time: activityData.start_time || '',
+        end_time: activityData.end_time || '',
+        registration_start_time: activityData.registration_start_time || '',
+        registration_end_time: activityData.registration_end_time || '',
       });
     } catch (error) {
       console.error('Error loading activity:', error);
+      toast.error('ไม่สามารถโหลดข้อมูลกิจกรรมได้');
       router.push('/dashboard/activities');
     } finally {
       setIsLoadingData(false);
@@ -151,10 +178,16 @@ export default function EditActivityPage() {
         });
       }
 
-      router.push(`/dashboard/activities/${activityId}`);
+      toast.success('อัปเดตกิจกรรมเรียบร้อยแล้ว');
+      
+      // เด้งไปที่ dashboard/activities แทน
+      setTimeout(() => {
+        router.push('/dashboard/activities');
+      }, 1000);
     } catch (error: any) {
       console.error('Error updating activity:', error);
-      alert(error?.response?.data?.message || 'เกิดข้อผิดพลาดในการอัปเดตกิจกรรม');
+      const errorMessage = error?.response?.data?.message || 'เกิดข้อผิดพลาดในการอัปเดตกิจกรรม';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -190,9 +223,10 @@ export default function EditActivityPage() {
     try {
       await api.delete(`/api/activities/${activityId}/images/${imageId}`);
       setExistingImages(prev => prev.filter(img => img.id !== imageId));
+      toast.success('ลบรูปภาพเรียบร้อยแล้ว');
     } catch (error) {
       console.error('Error deleting image:', error);
-      alert('เกิดข้อผิดพลาดในการลบรูปภาพ');
+      toast.error('เกิดข้อผิดพลาดในการลบรูปภาพ');
     }
   };
 
@@ -357,6 +391,98 @@ export default function EditActivityPage() {
                     }`}
                 />
                 {errors.max_participants && <p className="text-red-500 text-sm mt-1">{errors.max_participants}</p>}
+              </div>
+            </div>
+
+            {/* Registration Period Section */}
+            <div className="space-y-6">
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">ช่วงเวลาการลงทะเบียน</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      วันที่เปิดรับสมัคร
+                    </label>
+                    <input
+                      type="datetime-local"
+                      name="registration_start_date"
+                      value={formData.registration_start_date}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      วันที่ปิดรับสมัคร
+                    </label>
+                    <input
+                      type="datetime-local"
+                      name="registration_end_date"
+                      value={formData.registration_end_date}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      เวลาเปิดรับสมัคร
+                    </label>
+                    <input
+                      type="time"
+                      name="registration_start_time"
+                      value={formData.registration_start_time}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      เวลาปิดรับสมัคร
+                    </label>
+                    <input
+                      type="time"
+                      name="registration_end_time"
+                      value={formData.registration_end_time}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Activity Time Section */}
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">เวลากิจกรรม</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      เวลาเริ่มกิจกรรม
+                    </label>
+                    <input
+                      type="time"
+                      name="start_time"
+                      value={formData.start_time}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      เวลาสิ้นสุดกิจกรรม
+                    </label>
+                    <input
+                      type="time"
+                      name="end_time"
+                      value={formData.end_time}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 

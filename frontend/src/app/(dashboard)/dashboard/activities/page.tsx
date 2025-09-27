@@ -5,6 +5,7 @@ import useSWR from 'swr';
 import { api } from '@/lib/axios';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/ui/toast';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,6 +53,7 @@ const fetcher = (url: string) => api.get(url).then(r => r.data);
 export default function ActivitiesPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const { success, error: toast } = useToast();
   const isAdmin = user?.role === 'admin';
 
   const { data, isLoading, mutate } = useSWR<Activity[]>(
@@ -60,11 +62,22 @@ export default function ActivitiesPage() {
   );
 
   // โหลดชมรมที่ user เป็นประธาน (สำหรับ president)
-  const { data: myClubs = [] } = useSWR<Club[]>(
+  const { data: myClubs = [], error: clubsError, isLoading: clubsLoading } = useSWR<Club[]>(
     user?.role === 'president' ? '/api/clubs/me/president' : null,
     fetcher
   );
   const myClubIds = useMemo(() => new Set(myClubs.map(c => String(c.id))), [myClubs]);
+
+  // Debug logging for troubleshooting
+  if (typeof window !== 'undefined' && user?.role === 'president') {
+    console.log('🔍 Debug president clubs:', { 
+      userRole: user?.role, 
+      myClubs, 
+      clubsError, 
+      clubsLoading,
+      userInfo: user
+    });
+  }
 
   // โหลดรายชื่อชมรม เพื่อใช้ในฟิลเตอร์ + แสดงชื่อ
   const { data: clubs = [] } = useSWR<Club[]>('/api/clubs?limit=1000', fetcher);
@@ -233,10 +246,11 @@ export default function ActivitiesPage() {
       }
 
       await mutate();
+      success('บันทึกสำเร็จ', 'ข้อมูลกิจกรรมถูกอัปเดตเรียบร้อยแล้ว');
       closeEdit();
     } catch (e: any) {
       console.error('save edit failed:', e?.response?.status, e?.response?.data || e?.message);
-      alert(e?.response?.data?.message || 'บันทึกไม่สำเร็จ');
+      toast('บันทึกไม่สำเร็จ', e?.response?.data?.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
       setSaving(false);
     }
   }
@@ -251,11 +265,12 @@ export default function ActivitiesPage() {
     try {
       await api.delete(`/api/activities/${toDelete.id}`);
       await mutate();
+      success('ลบสำเร็จ', `กิจกรรม "${toDelete.name}" ถูกลบเรียบร้อยแล้ว`);
       setConfirmOpen(false);
       setToDelete(null);
     } catch (e: any) {
       console.error('delete failed:', e?.response?.status, e?.response?.data || e?.message);
-      alert(e?.response?.data?.message || 'ลบไม่สำเร็จ');
+      toast('ลบไม่สำเร็จ', e?.response?.data?.message || 'เกิดข้อผิดพลาดในการลบกิจกรรม');
     }
   }
 
@@ -267,10 +282,11 @@ export default function ActivitiesPage() {
       const imgs: ActivityImage[] = await fetcher(`/api/activities/${editing.id}/images`);
       setImages(imgs);
       if (coverImageId === img.id) setCoverImageId(null);
+      success('ลบรูปสำเร็จ', 'รูปภาพถูกลบออกจากกิจกรรมเรียบร้อยแล้ว');
       await mutate();
     } catch (e: any) {
       console.error('delete image failed:', e?.response?.status, e?.response?.data || e?.message);
-      alert(e?.response?.data?.message || 'ลบรูปไม่สำเร็จ');
+      toast('ลบรูปไม่สำเร็จ', e?.response?.data?.message || 'เกิดข้อผิดพลาดในการลบรูปภาพ');
     }
   }
 
@@ -303,9 +319,15 @@ export default function ActivitiesPage() {
           <p className="mt-1 text-sm text-emerald-700/80">
             {isAdmin 
               ? 'แตะเพื่อแก้ไข ตั้งรูปปก อัปโหลดรูป หรือ ลบกิจกรรมได้เลย'
-              : myClubs.length > 0 
-                ? `กิจกรรมของ${myClubs.map(c => c.name).join(', ')} • แตะเพื่อแก้ไขหรือจัดการผู้เข้าร่วม`
-                : 'คุณยังไม่ได้เป็นสมาชิกของชมรมใด กรุณาติดต่อผู้ดูแลระบบ'
+              : user?.role === 'president'
+                ? clubsLoading
+                  ? 'กำลังโหลดข้อมูลชมรม...'
+                  : clubsError
+                  ? `เกิดข้อผิดพลาดในการโหลดข้อมูลชมรม: ${clubsError.message || 'Unknown error'}`
+                  : myClubs.length > 0 
+                    ? `กิจกรรมของ${myClubs.map(c => c.name).join(', ')} • แตะเพื่อแก้ไขหรือจัดการผู้เข้าร่วม`
+                    : `คุณเป็นประธานชมรมแต่ไม่พบข้อมูลชมรม (Role: ${user?.role}, ID: ${user?.id})`
+                : `บทบาทของคุณ: ${user?.role || 'ไม่ระบุ'} - กรุณาติดต่อผู้ดูแลระบบเพื่อกำหนดบทบาท`
             }
           </p>
         </div>

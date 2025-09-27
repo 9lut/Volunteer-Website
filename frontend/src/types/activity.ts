@@ -21,4 +21,15 @@ export type Activity = {
       images?: ActivityImage[];
       created_at: string;
       updated_at: string;
+      
+      // Registration period
+      registration_start_date?: string | null;
+      registration_end_date?: string | null;
+      registration_deadline?: string | null;
+      
+      // Time fields
+      start_time?: string | null;
+      end_time?: string | null;
+      registration_start_time?: string | null;
+      registration_end_time?: string | null;
 };

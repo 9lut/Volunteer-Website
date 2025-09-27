@@ -177,15 +177,40 @@ router.patch('/:id/role', requireAuth, authorize(['admin']), async (req, res) =>
     const updated = await Users.updateRoleSafe(id, role);
     if (!updated) return res.status(404).json({ message: 'User not found' });
 
-    // ถ้าตั้งเป็นประธาน และส่ง club_id มา ให้กำหนดเป็นประธานของชมรมนั้น
-    const clubIdNum = club_id == null || club_id === '' ? null : Number(club_id);
-    if (role === 'president' && Number.isFinite(clubIdNum)) {
+    // จัดการชมรมตามบทบาท
+    if (role === 'president') {
+      // ลบจากชมรมเดิมทั้งหมดก่อน
+      await ClubMembers.removeUserFromAllClubs(id);
+      
+      const clubIdNum = club_id == null || club_id === '' ? null : Number(club_id);
+      if (Number.isFinite(clubIdNum)) {
+        // เพิ่มเป็นประธานชมรมที่ระบุ
+        try {
+          await ClubMembers.addMember(clubIdNum, id, 'president');
+        } catch (e) {
+          console.warn('assign president (update role) failed:', e.message);
+        }
+      } else {
+        // ถ้าไม่ระบุชมรม ให้เพิ่มเป็นประธานชมรมแรกที่พบ
+        try {
+          const Clubs = require('../persistence/clubs');
+          const allClubs = await Clubs.findAll({ limit: 1 });
+          if (allClubs.length > 0) {
+            await ClubMembers.addMember(allClubs[0].id, id, 'president');
+          }
+        } catch (e) {
+          console.warn('auto-assign president failed:', e.message);
+        }
+      }
+    } else {
+      // ถ้าเปลี่ยนเป็นบทบาทอื่น ลบออกจากชมรมทั้งหมด
       try {
-        await ClubMembers.addMember(clubIdNum, id, 'president');
+        await ClubMembers.removeUserFromAllClubs(id);
       } catch (e) {
-        console.warn('assign president (update role) failed:', e.message);
+        console.warn('remove from clubs failed:', e.message);
       }
     }
+    
     return res.json(updated);
   } catch (e) {
     console.error('PATCH /api/users/:id/role error:', e);
@@ -332,6 +357,29 @@ router.patch('/:id/status', requireAuth, authorize(['admin']), async (req, res) 
   } catch (e) {
     console.error('PATCH /api/users/:id/status error:', e);
     return res.status(500).json({ message: 'Failed to update status' });
+  }
+});
+
+// ตรวจสอบ club membership ของผู้ใช้ (admin เท่านั้น)
+router.get('/:id/club-membership', requireAuth, authorize(['admin']), async (req, res) => {
+  try {
+    const id = req.params.id;
+    
+    const user = await Users.findById(id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    const clubs = await ClubMembers.findClubsByUserId(id);
+    
+    return res.json({
+      user_id: id,
+      user_role: user.role,
+      club_memberships: clubs,
+      is_president: clubs.some(c => c.role === 'president'),
+      total_clubs: clubs.length
+    });
+  } catch (e) {
+    console.error('GET /api/users/:id/club-membership error:', e);
+    return res.status(500).json({ message: 'Failed to get club membership' });
   }
 });
 

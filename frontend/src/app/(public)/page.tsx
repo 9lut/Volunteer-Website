@@ -6,6 +6,7 @@ import { useActivities } from '@/hooks/useActivities';
 import RecentActivities from '@/components/activity/RecentActivities';
 import ActivityCard from '@/components/ActivityCard';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/ui/toast';
 
 function StatsCard({
   icon: Icon,
@@ -43,12 +44,20 @@ function SkeletonCard() {
 export default function HomePage() {
   const router = useRouter();
   const { activities = [], isLoading, error } = useActivities('approved');
+  const toast = useToast();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('ทั้งหมด');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => setIsVisible(true), []);
+
+  // แสดง error toast เมื่อมีข้อผิดพลาด
+  useEffect(() => {
+    if (error) {
+      toast.error('ไม่สามารถโหลดข้อมูลกิจกรรมได้ กรุณาลองใหม่อีกครั้ง');
+    }
+  }, [error, toast]);
 
   // หมวดหมู่จากข้อมูลจริง
   const categories = useMemo(() => {

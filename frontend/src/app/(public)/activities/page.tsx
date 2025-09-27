@@ -6,6 +6,7 @@ import { Search } from 'lucide-react';
 import { useActivities } from '@/hooks/useActivities';
 import ActivityCard from '@/components/ActivityCard';
 import type { Activity } from '@/types/activity';
+import { useToast } from '@/components/ui/toast';
 
 type AnyActivity = Activity & Record<string, any>;
 const PER_PAGE = 9;
@@ -13,6 +14,7 @@ const PER_PAGE = 9;
 function ActivitiesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const toast = useToast();
 
   const q = (searchParams.get('q') || '').trim();
   const { activities = [], isLoading, error } = useActivities('approved');
@@ -25,6 +27,13 @@ function ActivitiesContent() {
     setNameInput(q);
     setPage(1);
   }, [q]);
+
+  // แสดง error toast เมื่อโหลดข้อมูลไม่สำเร็จ
+  useEffect(() => {
+    if (error) {
+      toast.error('ไม่สามารถโหลดข้อมูลกิจกรรมได้');
+    }
+  }, [error, toast]);
 
   // กรองตาม q
   const filtered = useMemo(() => {

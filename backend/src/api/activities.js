@@ -134,9 +134,11 @@ router.get('/', optionalAuth, async (req, res) => {
     const sort = String(req.query.sort || '');
 
     // กรณี admin: เห็นทั้งหมด (ไม่กรองชมรม)
-    // กรณี president: กรองเฉพาะ club_id ของตัวเองเสมอ (รองรับหลายชมรม)
+    // กรณี president: 
+    //   - ถ้าขอ status = approved → เห็นกิจกรรมทั้งหมดที่ approved (เหมือน public)
+    //   - ถ้าขอ status อื่น → กรองเฉพาะชมรมตัวเอง (สำหรับจัดการ)
     let clubFilter = null;
-    if (isPresident(req.user)) {
+    if (isPresident(req.user) && status !== 'approved') {
       const clubIds = await ClubMembers.findClubIdsOfPresident(req.user.id);
       if (!clubIds || clubIds.length === 0) {
         return res.json([]); // ประธานที่ยังไม่ได้ผูกชมรม → ไม่เห็นกิจกรรมใด ๆ

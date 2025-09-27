@@ -6,6 +6,7 @@ import { api } from '@/lib/axios';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/ui/toast';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -143,6 +144,7 @@ function ActivityImage({ coverUrl, title }: { coverUrl?: string; title: string }
 export default function HistoryPage() {
   const { user, status } = useAuth();
   const router = useRouter();
+  const toast = useToast();
   
   // Authentication middleware
   useEffect(() => {
@@ -165,6 +167,13 @@ export default function HistoryPage() {
 
   const [tab, setTab] = useState<'all' | 'upcoming' | 'past'>('all');
   const [q, setQ] = useState('');
+
+  // แสดง error toast เมื่อโหลดข้อมูลไม่สำเร็จ
+  useEffect(() => {
+    if (error) {
+      toast.error('ไม่สามารถโหลดประวัติการสมัครได้');
+    }
+  }, [error, toast]);
 
   // สร้าง computed values ทั้งหมดก่อน conditional returns
   const todayFloor = new Date(new Date().toDateString());
@@ -199,12 +208,15 @@ export default function HistoryPage() {
 
   const unregister = async (activityId: number, name: string) => {
     if (!confirm(`ยกเลิกการสมัคร "${name}" ?`)) return;
+    
     try {
       await api.delete(`/api/activities/${activityId}/register`);
       await mutate();
+      toast.success(`ยกเลิกการสมัคร "${name}" เรียบร้อยแล้ว`);
     } catch (e: any) {
       console.error('unregister failed:', e?.response?.data || e?.message);
-      alert(e?.response?.data?.message || 'ยกเลิกไม่สำเร็จ');
+      const errorMessage = e?.response?.data?.message || 'ไม่สามารถยกเลิกการสมัครได้';
+      toast.error(errorMessage);
     }
   };
 

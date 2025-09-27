@@ -9,6 +9,7 @@ import { User, Mail, Shield, Edit2, Save, X, Calendar, MapPin, Settings, History
 import Link from 'next/link';
 import { api } from '@/lib/axios';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/ui/toast';
 
 interface ProfileData {
   id: string;
@@ -21,6 +22,7 @@ interface ProfileData {
 export default function ProfilePage() {
   const { user, status } = useAuth();
   const router = useRouter();
+  const toast = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<{ name: string }>({ name: '' });
   const [isLoading, setIsLoading] = useState(false);
@@ -88,14 +90,16 @@ export default function ProfilePage() {
       });
       
       console.log('Profile updated:', response.data);
+      toast.success('อัปเดตโปรไฟล์เรียบร้อยแล้ว');
+      
       // Force a page refresh to update the user data
-      window.location.reload();
+      setTimeout(() => window.location.reload(), 1000);
       
       setIsEditing(false);
     } catch (error: any) {
       console.error('Failed to update profile:', error);
       const message = error?.response?.data?.message || 'ไม่สามารถอัปเดตโปรไฟล์ได้';
-      alert(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }

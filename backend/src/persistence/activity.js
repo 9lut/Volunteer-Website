@@ -10,6 +10,8 @@ function toDate(x) {
 const BASE_COLS = `
   id, name, description, start_date, end_date, location, max_participants,
   created_by, status, created_at, updated_at, club_id,
+  registration_start_date, registration_end_date, registration_deadline,
+  start_time, end_time, registration_start_time, registration_end_time,
   COALESCE(
     (
       SELECT ai1.image_url
@@ -39,6 +41,12 @@ const BASE_COLS = `
  * @param {string|number} data.created_by
  * @param {'pending'|'approved'|'rejected'} [data.status]
  * @param {number|null} [data.club_id]
+ * @param {string|null} [data.registration_start_date]
+ * @param {string|null} [data.registration_end_date]
+ * @param {string|null} [data.start_time]
+ * @param {string|null} [data.end_time]
+ * @param {string|null} [data.registration_start_time]
+ * @param {string|null} [data.registration_end_time]
  */
 async function create(data) {
   const {
@@ -51,13 +59,27 @@ async function create(data) {
     created_by,
     status = 'pending',
     club_id = null,
+    registration_start_date = null,
+    registration_end_date = null,
+    start_time = null,
+    end_time = null,
+    registration_start_time = null,
+    registration_end_time = null,
   } = data;
 
   const { rows } = await query(
-    `INSERT INTO activities (name, description, start_date, end_date, location, max_participants, created_by, status, club_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `INSERT INTO activities (
+       name, description, start_date, end_date, location, max_participants, 
+       created_by, status, club_id, registration_start_date, registration_end_date,
+       start_time, end_time, registration_start_time, registration_end_time
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
      RETURNING id`,
-    [name, description, toDate(start_date), toDate(end_date), location, max_participants, created_by, status, club_id]
+    [
+      name, description, toDate(start_date), toDate(end_date), location, max_participants,
+      created_by, status, club_id, toDate(registration_start_date), toDate(registration_end_date),
+      start_time, end_time, registration_start_time, registration_end_time
+    ]
   );
 
   const newId = rows[0]?.id;
@@ -120,7 +142,11 @@ async function findById(id) {
 
 /** อัปเดตกิจกรรม (อนุญาตเฉพาะฟิลด์ที่กำหนด) */
 async function update(id, data, _actor) {
-  const allowed = ['name', 'description', 'start_date', 'end_date', 'location'];
+  const allowed = [
+    'name', 'description', 'start_date', 'end_date', 'location', 'max_participants',
+    'registration_start_date', 'registration_end_date', 
+    'start_time', 'end_time', 'registration_start_time', 'registration_end_time'
+  ];
   const sets = [];
   const values = [];
   let i = 1;
@@ -128,7 +154,7 @@ async function update(id, data, _actor) {
   for (const k of allowed) {
     if (data[k] !== undefined) {
       let v = data[k];
-      if (k === 'start_date' || k === 'end_date') v = toDate(v);
+      if (k.includes('date')) v = toDate(v);
       sets.push(`${k} = $${i++}`);
       values.push(v);
     }

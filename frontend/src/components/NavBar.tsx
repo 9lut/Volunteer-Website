@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Bell } from 'lucide-react';
 import useSWR from 'swr';
 import { api } from '@/lib/axios';
+import { useToast } from '@/components/ui/toast';
 
 const NAV_LINKS = [
   { href: '/', label: 'หน้าแรก' },
@@ -34,6 +35,7 @@ function NavLink({ href, label, mobile = false }: { href: string; label: string;
 
 export default function NavBar() {
   const { user, signOut } = useAuth();
+  const { success, error: toast } = useToast();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -45,7 +47,7 @@ export default function NavBar() {
     user?.role === 'student' ? '/api/users/me/registrations' : null,
     async (url: string) => {
       const response = await api.get(url);
-      return response.data.filter((reg: any) => 
+      return response.data.filter((reg: any) =>
         reg.status === 'approved' || reg.status === 'rejected'
       );
     },
@@ -73,24 +75,25 @@ export default function NavBar() {
     <nav className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* โลโก้ */}
-          <div className="flex items-center">
+          {/* ฝั่งซ้าย: โลโก้ + เมนูหลัก */}
+          <div className="flex items-center space-x-6">
+            {/* โลโก้ */}
             <Link href="/" className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">V</span>
               </div>
               <span className="text-xl font-bold text-gray-900">Volunteer Web</span>
             </Link>
+
+            {/* เมนูหลัก (Desktop) */}
+            <div className="hidden lg:flex items-center space-x-4">
+              {NAV_LINKS.map((link) => (
+                <NavLink key={link.href} href={link.href} label={link.label} />
+              ))}
+            </div>
           </div>
 
-          {/* เมนูหลัก (Desktop) */}
-          <div className="hidden lg:flex items-center space-x-4">
-            {NAV_LINKS.map((link) => (
-              <NavLink key={link.href} href={link.href} label={link.label} />
-            ))}
-          </div>
-
-          {/* ส่วนขวา */}
+          {/* ฝั่งขวา: ปุ่ม/แจ้งเตือน/โปรไฟล์ */}
           <div className="flex items-center space-x-4">
             {user ? (
               <>
@@ -114,7 +117,7 @@ export default function NavBar() {
                         <div className="px-4 py-2 border-b border-gray-100">
                           <h3 className="font-semibold text-gray-900">การแจ้งเตือน</h3>
                         </div>
-                        
+
                         {notifications.length === 0 ? (
                           <div className="px-4 py-8 text-center text-gray-500">
                             <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -123,19 +126,30 @@ export default function NavBar() {
                         ) : (
                           <div className="py-2">
                             {notifications.map((notification: any) => (
-                              <div key={notification.id} className="px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-b-0">
+                              <div
+                                key={notification.id}
+                                className="px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-b-0"
+                              >
                                 <div className="flex items-start space-x-3">
-                                  <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${
-                                    notification.status === 'approved' ? 'bg-green-500' : 'bg-red-500'
-                                  }`} />
+                                  <div
+                                    className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${notification.status === 'approved'
+                                      ? 'bg-green-500'
+                                      : 'bg-red-500'
+                                      }`}
+                                  />
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium text-gray-900 truncate">
                                       {notification.activity.name}
                                     </p>
-                                    <p className={`text-sm ${
-                                      notification.status === 'approved' ? 'text-green-600' : 'text-red-600'
-                                    }`}>
-                                      {notification.status === 'approved' ? '✅ ได้รับการอนุมัติ' : '❌ ไม่ได้รับการอนุมัติ'}
+                                    <p
+                                      className={`text-sm ${notification.status === 'approved'
+                                        ? 'text-green-600'
+                                        : 'text-red-600'
+                                        }`}
+                                    >
+                                      {notification.status === 'approved'
+                                        ? '✅ ได้รับการอนุมัติ'
+                                        : '❌ ไม่ได้รับการอนุมัติ'}
                                     </p>
                                     {notification.rejection_reason && (
                                       <p className="text-xs text-gray-500 mt-1">
@@ -143,7 +157,10 @@ export default function NavBar() {
                                       </p>
                                     )}
                                     <p className="text-xs text-gray-400 mt-1">
-                                      {new Date(notification.approved_at || notification.created_at).toLocaleDateString('th-TH')}
+                                      {new Date(
+                                        notification.approved_at ||
+                                        notification.created_at,
+                                      ).toLocaleDateString('th-TH')}
                                     </p>
                                   </div>
                                 </div>
@@ -171,7 +188,12 @@ export default function NavBar() {
                       stroke="currentColor"
                       viewBox="0 0 24 24"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
                     </svg>
                   </button>
 
@@ -183,8 +205,12 @@ export default function NavBar() {
                             {user.email ? user.email.charAt(0).toUpperCase() : 'U'}
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-900 text-sm truncate">{user.email}</p>
-                            <p className="text-xs text-gray-500 capitalize">{user.role}</p>
+                            <p className="font-semibold text-gray-900 text-sm truncate">
+                              {user.email}
+                            </p>
+                            <p className="text-xs text-gray-500 capitalize">
+                              {user.role}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -195,8 +221,18 @@ export default function NavBar() {
                           className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
                           onClick={() => setIsProfileOpen(false)}
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                            />
                           </svg>
                           <span className="text-sm font-medium">โปรไฟล์</span>
                         </Link>
@@ -206,36 +242,69 @@ export default function NavBar() {
                           className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
                           onClick={() => setIsProfileOpen(false)}
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
                           </svg>
                           <span className="text-sm font-medium">ประวัติของฉัน</span>
                         </Link>
 
                         {(user.role === 'admin' || user.role === 'president') && (
                           <Link
-                            href="/dashboard"
+                            href={user.role === 'admin' ? '/admin' : '/dashboard'}
                             className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
                             onClick={() => setIsProfileOpen(false)}
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                              />
                             </svg>
                             <span className="text-sm font-medium">แผงควบคุม</span>
                           </Link>
                         )}
-
                         <hr className="my-2 border-gray-100" />
-
                         <button
-                          onClick={() => {
-                            signOut();
-                            setIsProfileOpen(false);
+                          onClick={async () => {
+                            try {
+                              setIsProfileOpen(false);
+                              await signOut();
+                              success('ออกจากระบบสำเร็จ', 'ขอบคุณสำหรับการใช้งาน');
+                            } catch (error) {
+                              toast('เกิดข้อผิดพลาด', 'ไม่สามารถออกจากระบบได้');
+                            }
                           }}
                           className="flex items-center space-x-3 px-4 py-2 text-red-600 hover:bg-red-50 transition-colors w-full text-left"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                            />
                           </svg>
                           <span className="text-sm font-medium">ออกจากระบบ</span>
                         </button>
@@ -254,7 +323,7 @@ export default function NavBar() {
                 </Link>
                 <Link
                   href="/register"
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 font-medium"
+                  className="bg-gradient-to-r from-green-400 to-green-500 text-white px-4 py-2 rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 font-medium"
                 >
                   สมัครสมาชิก
                 </Link>
@@ -266,11 +335,26 @@ export default function NavBar() {
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="lg:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 {isMobileMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
                 )}
               </svg>
             </button>
@@ -288,7 +372,7 @@ export default function NavBar() {
                 <div className="pt-2 border-t border-gray-100 mt-4 space-y-2">
                   <Link
                     href="/register"
-                    className="block px-4 py-2 text-center bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 font-medium"
+                    className="block px-4 py-2 text-center bg-gradient-to-r from-green-400 to-green-500 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 font-medium"
                   >
                     สมัครสมาชิก
                   </Link>

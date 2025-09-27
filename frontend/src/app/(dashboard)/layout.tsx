@@ -1,42 +1,43 @@
-// app/dashboard/layout.tsx
-import { redirect } from 'next/navigation';
-import { auth } from '@/lib/auth';
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/components/ui/toast';
 import Providers from '@/components/Providers';
 import DashboardNavBar from '@/components/DashboardNavBar';
-import { decodeJwt } from 'jose';
 
-export const dynamic = 'force-dynamic';
+function DashboardContent({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const { error } = useToast();
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth();
-  // ยังไม่ล็อกอิน → ไป login พร้อม callback กลับมาหน้านี้
-  if (!session) redirect('/login?callbackUrl=/dashboard');
-
-  // เช็กหมดอายุของ backend JWT
-  let expMs = (session as any)?.backendExp as number | undefined;
-  if (!expMs) {
-    try {
-      const payload: any = decodeJwt((session as any).backendToken as string);
-      expMs = payload?.exp ? payload.exp * 1000 : undefined;
-    } catch {
-      redirect('/login?expired=1&callbackUrl=/dashboard');
+  useEffect(() => {
+    if (!loading) {
+      if (!user) {
+        router.replace('/login?callbackUrl=/dashboard');
+        return;
+      }
+      if (user.role === 'student') {
+        error("คุณไม่ได้รับสิทธิ์", "นักศึกษาไม่สามารถเข้าหน้านี้ได้");
+        router.replace('/');
+      }
     }
-  }
-  if (expMs && Date.now() >= expMs) {
-    redirect('/login?expired=1&callbackUrl=/dashboard');
-  }
+  }, [loading, user, error, router]);
 
-  // ❌ กัน student เข้าหน้านี้
-  const role = (session as any)?.user?.role as 'admin' | 'president' | 'student' | undefined;
-  if (role === 'student') redirect('/');
-
-  // (ถ้าต้องการจำกัดเพิ่มเติมว่าเฉพาะ admin|president เท่านั้นก็พอ ไม่ต้อง else)
+  if (loading) return <div className="min-h-screen flex items-center justify-center">กำลังโหลด...</div>;
 
   return (
+    <DashboardNavBar>
+      <main className="p-0">{children}</main>
+    </DashboardNavBar>
+  );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
     <Providers>
-      <DashboardNavBar >
-        <main className="p-0">{children}</main>
-      </DashboardNavBar>
+      <DashboardContent>{children}</DashboardContent>
     </Providers>
   );
 }

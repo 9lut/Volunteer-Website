@@ -103,8 +103,46 @@ export default function AdminUsers() {
   const updateRole = async (id: string, role: UserRow['role']) => {
     try {
       setBusyId(id);
-      await api.patch(`/api/users/${id}/role`, { role });
-      await mutate();
+      
+      if (role === 'president') {
+        // สำหรับประธานชมรม ใช้ endpoint พิเศษ
+        if (clubList.length === 0) {
+          alert('ยังไม่มีชมรมในระบบ กรุณาสร้างชมรมก่อน');
+          return;
+        }
+
+        // ถ้ามีชมรมเดียว แต่งตั้งเป็นประธานชมรมนั้นทันที
+        if (clubList.length === 1) {
+          await api.patch(`/api/users/${id}/role`, { 
+            role: 'president',
+            club_id: clubList[0].id 
+          });
+          await mutate();
+        } else {
+          // ถ้ามีหลายชมรม ให้เลือก
+          const currentUser = data?.find(u => u.id === id);
+          if (currentUser) {
+            setEditUser({ ...currentUser, role: 'president' });
+            setEditForm({
+              name: currentUser.name || '',
+              email: currentUser.email,
+              role: 'president',
+              status: currentUser.status || 'active',
+              clubIds: [],
+            });
+            setEditOpen(true);
+            return; // รอให้ผู้ใช้เลือกชมรมใน modal
+          }
+        }
+      } else {
+        // สำหรับบทบาทอื่นๆ อัปเดตทันที
+        await api.patch(`/api/users/${id}/role`, { role });
+        await mutate();
+      }
+    } catch (e: any) {
+      console.error('Update role failed:', e);
+      const errorMessage = e?.response?.data?.message || e?.message || 'เปลี่ยนบทบาทไม่สำเร็จ';
+      alert(errorMessage);
     } finally {
       setBusyId(null);
     }
@@ -137,27 +175,48 @@ export default function AdminUsers() {
     if (!editUser) return;
     if (!editForm.email.trim()) return alert('กรุณากรอกอีเมล');
     
+    // ตรวจสอบว่าถ้าเป็นประธานต้องมีชมรม
+    if (editForm.role === 'president' && editForm.clubIds.length === 0) {
+      return alert('กรุณาเลือกชมรมอย่างน้อย 1 ชมรมสำหรับประธานชมรม');
+    }
+    
     try {
       setBusyId(editUser.id);
       
       const payload: any = {
         name: editForm.name || null,
         email: editForm.email,
-        role: editForm.role,
         status: editForm.status,
       };
 
-      // อัปเดตข้อมูลผู้ใช้
+      // อัปเดตข้อมูลพื้นฐาน
       await api.patch(`/api/users/${editUser.id}`, payload);
 
-      // จัดการชมรมสำหรับประธาน
+      // จัดการบทบาทและชมรม
       if (editForm.role === 'president') {
-        await api.patch(`/api/users/${editUser.id}/clubs`, {
-          club_ids: editForm.clubIds
-        });
+        // ใช้ endpoint ที่มีอยู่แล้วสำหรับแต่งตั้งประธาน
+        if (editForm.clubIds.length > 0) {
+          const firstClubId = editForm.clubIds[0];
+          if (firstClubId) {
+            await api.patch(`/api/users/${editUser.id}/role`, { 
+              role: 'president',
+              club_id: firstClubId
+            });
+            
+            // ถ้ามีชมรมเพิ่มเติม ให้เพิ่มต่อ
+            if (editForm.clubIds.length > 1) {
+              await api.patch(`/api/users/${editUser.id}/clubs`, {
+                club_ids: editForm.clubIds
+              });
+            }
+          }
+        } else {
+          // ถ้าไม่มีชมรม ให้แต่งตั้งเป็นประธานก่อน
+          await api.patch(`/api/users/${editUser.id}/role`, { role: 'president' });
+        }
       } else {
-        // ถ้าไม่ใช่ประธาน ลบออกจากชมรมทั้งหมด
-        await api.patch(`/api/users/${editUser.id}/clubs`, { club_ids: [] });
+        // บทบาทอื่นๆ หรือเปลี่ยนจากประธานเป็นบทบาทอื่น
+        await api.patch(`/api/users/${editUser.id}/role`, { role: editForm.role });
       }
 
       setEditOpen(false);
@@ -165,8 +224,9 @@ export default function AdminUsers() {
       await mutate();
       
     } catch (e: any) {
-      console.error('Edit user failed:', e?.response?.status, e?.response?.data || e?.message);
-      alert(e?.response?.data?.message || 'แก้ไขผู้ใช้ไม่สำเร็จ');
+      console.error('Edit user failed:', e);
+      const errorMessage = e?.response?.data?.message || e?.message || 'แก้ไขผู้ใช้ไม่สำเร็จ';
+      alert(errorMessage);
     } finally {
       setBusyId(null);
     }
@@ -237,8 +297,9 @@ export default function AdminUsers() {
       await mutate();
     } catch (e: any) {
       setCreateSaving(false);
-      console.error('create user failed:', e?.response?.status, e?.response?.data || e?.message);
-      alert(e?.response?.data?.message || 'สร้างผู้ใช้ไม่สำเร็จ');
+      console.error('create user failed:', e);
+      const errorMessage = e?.response?.data?.message || e?.message || 'สร้างผู้ใช้ไม่สำเร็จ';
+      alert(errorMessage);
     }
   };
 
@@ -281,8 +342,9 @@ export default function AdminUsers() {
       setImportOpen(false);
       setImportFile(null);
     } catch (e: any) {
-      console.error('import users failed:', e?.response?.status, e?.response?.data || e?.message);
-      alert(e?.response?.data?.message || 'นำเข้าไม่สำเร็จ');
+      console.error('import users failed:', e);
+      const errorMessage = e?.response?.data?.message || e?.message || 'นำเข้าไม่สำเร็จ';
+      alert(errorMessage);
     } finally {
       setImporting(false);
     }

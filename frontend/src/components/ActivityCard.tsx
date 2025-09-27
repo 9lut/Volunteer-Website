@@ -127,15 +127,75 @@ export default function ActivityCard({ a }: { a: Activity }) {
       </CardHeader>
 
       <CardContent className="p-4 pt-0 space-y-3">
-        {/* Date and Time */}
+        {/* Registration Period */}
+        {(a.registration_start_date || a.registration_end_date) && (
+          <div className="flex items-center text-sm text-gray-600">
+            <Clock className="w-4 h-4 mr-2 text-purple-500" />
+            <div className="flex flex-col">
+              <span className="font-medium text-xs text-purple-600 mb-1">ช่วงสมัคร:</span>
+              <span>
+                {a.registration_start_date 
+                  ? formatDate(a.registration_start_date) 
+                  : 'ไม่ระบุวันเริ่ม'
+                }
+                {a.registration_start_time && (
+                  <span className="ml-1 text-xs">
+                    {new Date(`1970-01-01T${a.registration_start_time}`).toLocaleTimeString('th-TH', {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                )}
+                {a.registration_end_date && (
+                  <>
+                    {' - '}
+                    {formatDate(a.registration_end_date)}
+                    {a.registration_end_time && (
+                      <span className="ml-1 text-xs">
+                        {new Date(`1970-01-01T${a.registration_end_time}`).toLocaleTimeString('th-TH', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    )}
+                  </>
+                )}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Activity Date and Time */}
         <div className="flex items-center text-sm text-gray-600">
           <CalendarDays className="w-4 h-4 mr-2 text-blue-500" />
-          <span>
-            {start ? formatDate(a.start_date) : 'ไม่ระบุวันที่'}
-            {end && end.getTime() !== start?.getTime() && (
-              <> - {formatDate(a.end_date)}</>
-            )}
-          </span>
+          <div className="flex flex-col">
+            <span className="font-medium text-xs text-blue-600 mb-1">วันที่จัดกิจกรรม:</span>
+            <span>
+              {start ? formatDate(a.start_date) : 'ไม่ระบุวันที่'}
+              {a.start_time && (
+                <span className="ml-1 text-xs">
+                  {new Date(`1970-01-01T${a.start_time}`).toLocaleTimeString('th-TH', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </span>
+              )}
+              {end && end.getTime() !== start?.getTime() && (
+                <>
+                  {' - '}
+                  {formatDate(a.end_date)}
+                  {a.end_time && (
+                    <span className="ml-1 text-xs">
+                      {new Date(`1970-01-01T${a.end_time}`).toLocaleTimeString('th-TH', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  )}
+                </>
+              )}
+            </span>
+          </div>
         </div>
 
         {/* Location */}

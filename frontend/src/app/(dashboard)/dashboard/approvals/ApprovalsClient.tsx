@@ -5,6 +5,7 @@ import { api } from '@/lib/axios';
 import { useMemo, useState, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/toast';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -31,6 +32,7 @@ type PendingActivity = {
 
 export default function ApprovalsClient() {
   const { activities: pending = [], isLoading, error, mutate } = useActivities('pending');
+  const { success, error: toast } = useToast();
 
   const [busyId, setBusyId] = useState<number | null>(null);
   const [q, setQ] = useState('');
@@ -125,14 +127,20 @@ export default function ApprovalsClient() {
         setBusyId(id);
         await api.patch(`/api/activities/${id}/status`, { status });
         await mutate();
-      } catch (e) {
+        
+        if (status === 'approved') {
+          success('อนุมัติกิจกรรมสำเร็จ', 'กิจกรรมได้รับการอนุมัติและแสดงในหน้าสาธารณะแล้ว');
+        } else {
+          success('ไม่อนุมัติกิจกรรม', 'สถานะกิจกรรมถูกเปลี่ยนเป็น "ไม่อนุมัติ" เรียบร้อยแล้ว');
+        }
+      } catch (e: any) {
         console.error('setStatus error:', e);
-        alert('เปลี่ยนสถานะไม่สำเร็จ');
+        toast('เปลี่ยนสถานะไม่สำเร็จ', e?.response?.data?.message || 'เกิดข้อผิดพลาดในการเปลี่ยนสถานะ');
       } finally {
         setBusyId(null);
       }
     },
-    [mutate]
+    [mutate, success, toast]
   );
 
   const Skeleton = () => (
@@ -290,7 +298,7 @@ export default function ApprovalsClient() {
                     <Button
                       disabled={isBusy}
                       onClick={() => setStatus(a.id, 'approved')}
-                      className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white"
+                      className="cursor-pointer rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white"
                     >
                       <Check className="mr-1.5 h-4 w-4" />
                       {isBusy ? 'กำลังอนุมัติ…' : 'อนุมัติ'}
@@ -298,7 +306,7 @@ export default function ApprovalsClient() {
                     <Button
                       disabled={isBusy}
                       variant="destructive"
-                      className="rounded-xl"
+                      className="cursor-pointer rounded-xl bg-rose-600 hover:bg-rose-700 text-white"
                       onClick={() => setRejectId(a.id)}
                     >
                       <X className="mr-1.5 h-4 w-4" />

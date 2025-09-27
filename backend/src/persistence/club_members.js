@@ -9,7 +9,7 @@ async function isPresidentOfClub(userId, clubId) {
   const { rows } = await query(
     `SELECT 1
      FROM club_members
-  WHERE club_id = $1 AND user_id = $2::uuid AND role = 'president'
+     WHERE club_id = $1 AND user_id = $2::uuid AND role = 'president'
      LIMIT 1`,
     [clubId, userId]
   );
@@ -38,6 +38,7 @@ async function addMember(clubId, userId, roleInClub = 'member') {
     );
     return rows[0];
   } catch (e) {
+    console.error(`Failed to add member: club_id=${clubId}, user_id=${userId}, role=${roleInClub}`, e);
     if (String(e.message || '').includes('duplicate key')) {
       const err = new Error('Duplicate');
       err.code = 'DUP';

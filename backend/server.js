@@ -70,6 +70,15 @@ function createServer() {
     console.warn('registrationsRouter not loaded:', err.message);
   }
 
+  // Admin routes (ต้อง auth)
+  try {
+    const adminRouter = require('./src/api/admin');
+    app.use('/api/admin', requireAuth, adminRouter);
+    console.log('adminRouter mounted at /api/admin');
+  } catch (err) {
+    console.warn('adminRouter not loaded:', err.message);
+  }
+
   // Health & root
   app.get('/', (_, res) => res.send('OK'));
   app.get('/api', (_, res) => res.json({ message: 'API is running' }));

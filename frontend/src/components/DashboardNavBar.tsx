@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
-import { canApproveActivity, canManageUsers, canManageActivities, canManageClubs } from '@/lib/roles';
+import { canCreateActivities, canApproveActivity, canManageUsers, canManageActivities, canManageClubs } from '@/lib/roles';
 import { usePathname, useRouter } from 'next/navigation';
 import { useMemo, useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { useToast } from '@/components/ui/toast';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -15,10 +16,12 @@ export default function DashboardNavBar({ children }: DashboardLayoutProps) {
   const { user, signOut } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const { success, error: toast } = useToast();
   const isAdmin = canManageUsers(user?.role);
   const canApprove = canApproveActivity(user?.role);
   const canManageActs = canManageActivities(user?.role);
   const canManageCls = canManageClubs(user?.role);
+  const canCreateActs = canCreateActivities(user?.role);
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -67,9 +70,11 @@ export default function DashboardNavBar({ children }: DashboardLayoutProps) {
   const handleLogout = async () => {
     try {
       await signOut();
+      success('ออกจากระบบสำเร็จ', 'ขอบคุณสำหรับการใช้งาน');
       router.push('/login');
     } catch (error) {
       console.error('Error signing out:', error);
+      toast('เกิดข้อผิดพลาด', 'ไม่สามารถออกจากระบบได้ กรุณาลองใหม่อีกครั้ง');
     }
   };
 
@@ -107,6 +112,16 @@ export default function DashboardNavBar({ children }: DashboardLayoutProps) {
         show: canApprove,
       },
       {
+        href: '/dashboard/activities/create',
+        label: user?.role === 'president' ? 'สร้างกิจกรรมของฉัน' : 'สร้างกิจกรรม',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+        ),
+        show: canCreateActs,
+      },
+      {
         href: '/dashboard/activities',
         label: user?.role === 'president' ? 'กิจกรรมของฉัน' : 'จัดการกิจกรรม',
         icon: (
@@ -132,16 +147,6 @@ export default function DashboardNavBar({ children }: DashboardLayoutProps) {
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-        ),
-        show: user?.role === 'president',
-      },
-      {
-        href: '/dashboard/activities/create',
-        label: 'สร้างกิจกรรม',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
         ),
         show: user?.role === 'president',
@@ -263,11 +268,10 @@ export default function DashboardNavBar({ children }: DashboardLayoutProps) {
               <li key={it.href} className="relative">
                 <Link
                   href={it.href}
-                  className={`flex flex-col items-center justify-center gap-1 py-3 px-2 text-xs rounded-xl transition-all duration-200 ${
-                    active 
-                      ? 'text-emerald-600 bg-emerald-50' 
+                  className={`flex flex-col items-center justify-center gap-1 py-3 px-2 text-xs rounded-xl transition-all duration-200 ${active
+                      ? 'text-emerald-600 bg-emerald-50'
                       : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   <span className={`p-1.5 rounded-lg transition-colors ${active ? 'bg-emerald-100' : 'bg-transparent'}`}>
                     {it.icon}
@@ -335,15 +339,14 @@ export default function DashboardNavBar({ children }: DashboardLayoutProps) {
                     href={it.href}
                     className={[
                       'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200',
-                      active 
-                        ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md' 
+                      active
+                        ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md'
                         : 'text-gray-700 hover:bg-emerald-50 hover:text-emerald-700',
                       isCollapsed ? 'justify-center' : '',
                     ].join(' ')}
                   >
-                    <span className={`flex items-center justify-center transition-colors ${
-                      active ? 'text-white' : 'text-emerald-600'
-                    }`}>
+                    <span className={`flex items-center justify-center transition-colors ${active ? 'text-white' : 'text-emerald-600'
+                      }`}>
                       {it.icon}
                     </span>
                     {!isCollapsed && <span className="font-medium">{it.label}</span>}
@@ -475,9 +478,8 @@ export default function DashboardNavBar({ children }: DashboardLayoutProps) {
                   `}
                   onClick={() => setSidebarOpen(false)}
                 >
-                  <span className={`mr-3 transition-colors ${
-                    active ? 'text-white' : 'text-emerald-600'
-                  }`}>
+                  <span className={`mr-3 transition-colors ${active ? 'text-white' : 'text-emerald-600'
+                    }`}>
                     {it.icon}
                   </span>
                   {it.label}
