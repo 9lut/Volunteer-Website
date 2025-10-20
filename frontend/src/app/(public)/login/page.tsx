@@ -60,7 +60,7 @@ function LoginContent() {
       if (isSafeInternalPath(from) && roleAllowsPath(role, from!)) {
         next = from!;
       } else {
-        if (role === 'admin') next = '/dashboard';
+        if (role === 'admin') next = '/admin';
         else if (role === 'president') next = '/dashboard';
         else next = '/';
       }
