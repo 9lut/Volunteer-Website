@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { api } from '@/lib/axios';
+import { Button } from '@/components/ui/button';
 
 interface Registration {
   id: number;
@@ -208,7 +209,7 @@ export default function ActivityParticipantsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-100 flex items-center justify-center">
+      <div className="min-h-screenflex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-emerald-300 border-t-emerald-600 rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">กำลังโหลดข้อมูล...</p>
@@ -218,7 +219,7 @@ export default function ActivityParticipantsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-100">
+    <div className="min-h-screen">
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
@@ -469,18 +470,18 @@ export default function ActivityParticipantsPage() {
                         <div className="flex gap-2 flex-wrap">
                           {registration.status === 'pending' && (
                             <>
-                              <button
+                              <Button
                                 onClick={() => updateRegistrationStatus(registration.id, 'approved')}
-                                className="px-3 py-1 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors"
+                                className="cursor-pointer px-3 py-1 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors"
                               >
                                 อนุมัติ
-                              </button>
-                              <button
+                              </Button>
+                              <Button
                                 onClick={() => updateRegistrationStatus(registration.id, 'rejected')}
-                                className="px-3 py-1 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors"
+                                className="cursor-pointer px-3 py-1 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors"
                               >
                                 ปฏิเสธ
-                              </button>
+                              </Button>
                             </>
                           )}
                           {registration.status === 'approved' && (
@@ -489,20 +490,13 @@ export default function ActivityParticipantsPage() {
                                 ✓ อนุมัติแล้ว
                               </div>
                               <div className="flex gap-1">
-                                <button
+                                <Button
                                   onClick={() => changeRegistrationStatus(registration.id, 'rejected')}
-                                  className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded hover:bg-red-200 transition-colors"
+                                  className="cursor-pointer px-2 py-1 bg-red-100 text-red-700 text-xs rounded hover:bg-red-200 transition-colors"
                                   title="เปลี่ยนเป็นปฏิเสธ"
                                 >
                                   ปฏิเสธ
-                                </button>
-                                <button
-                                  onClick={() => changeRegistrationStatus(registration.id, 'pending')}
-                                  className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded hover:bg-yellow-200 transition-colors"
-                                  title="เปลี่ยนเป็นรอพิจารณา"
-                                >
-                                  รอพิจารณา
-                                </button>
+                                </Button>
                               </div>
                             </>
                           )}

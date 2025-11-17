@@ -5,7 +5,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { User, Mail, Shield, Edit2, Save, X, Calendar, MapPin, Settings, History, Activity, Crown, UserCheck, Users } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { User, Mail, Edit2, Save, X, History, Activity, Crown, UserCheck, Users, Key, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/axios';
 import { useRouter } from 'next/navigation';
@@ -17,11 +20,58 @@ interface ProfileData {
   name: string | null;
   role: 'student' | 'president' | 'admin';
   created_at?: string;
+  status?: 'active' | 'disabled';
+  student_id?: string | null;
+  faculty?: string | null;
+  major?: string | null;
+  birth_date?: string | null;
+  year_level?: number | null;
+  phone?: string | null;
 }
 
 export default function ProfilePage() {
   const { user, status } = useAuth();
   const router = useRouter();
+  const toast = useToast();
+  
+  // Local user data state
+  const [userData, setUserData] = useState<ProfileData | null>(null);
+  
+  // Edit profile state
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({ 
+    name: '',
+    faculty: '',
+    major: '',
+    birth_date: '',
+    year_level: '',
+    phone: '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Change password state
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  
+  // Load user data
+  useEffect(() => {
+    if (user) {
+      setUserData(user);
+      setEditForm({ 
+        name: user.name || '',
+        faculty: user.faculty || '',
+        major: user.major || '',
+        birth_date: user.birth_date || '',
+        year_level: user.year_level?.toString() || '',
+        phone: user.phone || '',
+      });
+    }
+  }, [user]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -29,6 +79,86 @@ export default function ProfilePage() {
       router.push('/login');
     }
   }, [status, router]);
+  
+  // Handle edit profile
+  const handleSaveProfile = async () => {
+    try {
+      setIsSaving(true);
+      const response = await api.patch('/api/users/me', {
+        name: editForm.name.trim() || null,
+        faculty: editForm.faculty.trim() || null,
+        major: editForm.major.trim() || null,
+        birth_date: editForm.birth_date || null,
+        year_level: editForm.year_level ? parseInt(editForm.year_level) : null,
+        phone: editForm.phone.trim() || null,
+      });
+      
+      // อัปเดต local state
+      setUserData(response.data);
+      setIsEditMode(false);
+      toast.success('บันทึกข้อมูลสำเร็จ');
+      
+      // Reload session to update user data
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      toast.error(error?.response?.data?.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const handleCancelEdit = () => {
+    setEditForm({ 
+      name: userData?.name || '',
+      faculty: userData?.faculty || '',
+      major: userData?.major || '',
+      birth_date: userData?.birth_date || '',
+      year_level: userData?.year_level?.toString() || '',
+      phone: userData?.phone || '',
+    });
+    setIsEditMode(false);
+  };
+  
+  // Handle change password
+  const handleChangePassword = async () => {
+    // Validation
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      toast.error('กรุณากรอกข้อมูลให้ครบถ้วน');
+      return;
+    }
+    
+    if (passwordForm.newPassword.length < 6) {
+      toast.error('รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร');
+      return;
+    }
+    
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('รหัสผ่านใหม่ไม่ตรงกัน');
+      return;
+    }
+    
+    try {
+      setIsChangingPassword(true);
+      await api.patch('/api/users/me/password', {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      });
+      
+      toast.success('เปลี่ยนรหัสผ่านสำเร็จ');
+      setPasswordDialogOpen(false);
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      toast.error(error?.response?.data?.message || 'เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
 
   const getRoleIcon = (role: string) => {
@@ -151,6 +281,47 @@ export default function ProfilePage() {
                   </div>
                   ข้อมูลส่วนตัว
                 </CardTitle>
+                <div className="flex gap-2">
+                  {!isEditMode ? (
+                    <>
+                      <Button
+                        onClick={() => setIsEditMode(true)}
+                        className="bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white shadow-lg rounded-xl"
+                      >
+                        <Edit2 className="w-4 h-4 mr-2" />
+                        แก้ไขข้อมูล
+                      </Button>
+                      <Button
+                        onClick={() => setPasswordDialogOpen(true)}
+                        variant="outline"
+                        className="border-violet-300 text-violet-700 hover:bg-violet-50 rounded-xl"
+                      >
+                        <Key className="w-4 h-4 mr-2" />
+                        เปลี่ยนรหัสผ่าน
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        onClick={handleSaveProfile}
+                        disabled={isSaving}
+                        className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg rounded-xl"
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        {isSaving ? 'กำลังบันทึก...' : 'บันทึก'}
+                      </Button>
+                      <Button
+                        onClick={handleCancelEdit}
+                        disabled={isSaving}
+                        variant="outline"
+                        className="border-gray-300 text-gray-700 hover:bg-gray-50 rounded-xl"
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        ยกเลิก
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             </CardHeader>
 
@@ -192,7 +363,25 @@ export default function ProfilePage() {
                     <label className="block text-sm font-bold text-violet-600 mb-3 uppercase tracking-wide">
                       ชื่อ-นามสกุล
                     </label>
-                    <p className="text-2xl text-gray-800 font-bold">{user.name || 'ยังไม่ได้ตั้งชื่อ'}</p>
+                    {isEditMode ? (
+                      <Input
+                        value={editForm.name}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="ระบุชื่อ-นามสกุล"
+                        className="text-xl font-bold border-violet-300 focus-visible:ring-violet-500"
+                        disabled={isSaving}
+                      />
+                    ) : (
+                      <p className="text-2xl text-gray-800 font-bold">{userData?.name || 'ยังไม่ได้ตั้งชื่อ'}</p>
+                    )}
+                  </div>
+
+                  <div className="bg-gradient-to-br from-cyan-50/50 to-emerald-50/50 rounded-3xl p-8 shadow-lg">
+                    <label className="block text-sm font-bold text-cyan-600 mb-3 uppercase tracking-wide">
+                      รหัสนักศึกษา
+                    </label>
+                    <p className="text-xl text-gray-800 font-semibold">{userData?.student_id || 'ไม่ได้ระบุ'}</p>
+                    {!userData?.student_id && <p className="text-xs text-gray-500 mt-1">ไม่สามารถแก้ไขได้</p>}
                   </div>
 
                   <div className="bg-gradient-to-br from-cyan-50/50 to-emerald-50/50 rounded-3xl p-8 shadow-lg">
@@ -217,19 +406,183 @@ export default function ProfilePage() {
                     </Badge>
                   </div>
 
-                  <div className="bg-gradient-to-br from-green-50/50 to-emerald-50/50 rounded-3xl p-8 shadow-lg">
-                    <label className="block text-sm font-bold text-green-600 mb-4 uppercase tracking-wide">
-                      สถานะบัญชี
+                  <div className="bg-gradient-to-br from-amber-50/50 to-orange-50/50 rounded-3xl p-8 shadow-lg">
+                    <label className="block text-sm font-bold text-amber-600 mb-3 uppercase tracking-wide">
+                      คณะ
                     </label>
-                    <Badge className="bg-gradient-to-r from-green-400 to-emerald-400 text-white shadow-lg shadow-green-200/50 font-bold text-xl px-6 py-3 rounded-2xl">
-                      <UserCheck className="w-5 h-5 mr-2" />
-                      ใช้งานได้
-                    </Badge>
+                    {isEditMode ? (
+                      <Input
+                        value={editForm.faculty}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, faculty: e.target.value }))}
+                        placeholder="ระบุคณะ"
+                        className="text-lg font-medium border-amber-300 focus-visible:ring-amber-500"
+                        disabled={isSaving}
+                      />
+                    ) : (
+                      <p className="text-xl text-gray-800 font-semibold">{userData?.faculty || 'ยังไม่ได้ระบุ'}</p>
+                    )}
+                  </div>
+
+                  <div className="bg-gradient-to-br from-pink-50/50 to-rose-50/50 rounded-3xl p-8 shadow-lg">
+                    <label className="block text-sm font-bold text-pink-600 mb-3 uppercase tracking-wide">
+                      สาขา
+                    </label>
+                    {isEditMode ? (
+                      <Input
+                        value={editForm.major}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, major: e.target.value }))}
+                        placeholder="ระบุสาขา"
+                        className="text-lg font-medium border-pink-300 focus-visible:ring-pink-500"
+                        disabled={isSaving}
+                      />
+                    ) : (
+                      <p className="text-xl text-gray-800 font-semibold">{userData?.major || 'ยังไม่ได้ระบุ'}</p>
+                    )}
+                  </div>
+
+                  <div className="bg-gradient-to-br from-blue-50/50 to-indigo-50/50 rounded-3xl p-8 shadow-lg">
+                    <label className="block text-sm font-bold text-blue-600 mb-3 uppercase tracking-wide">
+                      วันเกิด
+                    </label>
+                    {isEditMode ? (
+                      <Input
+                        type="date"
+                        value={editForm.birth_date}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, birth_date: e.target.value }))}
+                        className="text-lg font-medium border-blue-300 focus-visible:ring-blue-500"
+                        disabled={isSaving}
+                      />
+                    ) : (
+                      <p className="text-xl text-gray-800 font-semibold">
+                        {userData?.birth_date ? new Date(userData.birth_date).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }) : 'ยังไม่ได้ระบุ'}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="bg-gradient-to-br from-green-50/50 to-emerald-50/50 rounded-3xl p-8 shadow-lg">
+                    <label className="block text-sm font-bold text-green-600 mb-3 uppercase tracking-wide">
+                      ชั้นปี
+                    </label>
+                    {isEditMode ? (
+                      <select
+                        value={editForm.year_level}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, year_level: e.target.value }))}
+                        className="w-full rounded-xl border border-green-300 px-3 py-2 text-lg font-medium focus:ring-2 focus:ring-green-500"
+                        disabled={isSaving}
+                      >
+                        <option value="">เลือกชั้นปี</option>
+                        <option value="1">ปี 1</option>
+                        <option value="2">ปี 2</option>
+                        <option value="3">ปี 3</option>
+                        <option value="4">ปี 4</option>
+                        <option value="5">ปี 5</option>
+                        <option value="6">ปี 6</option>
+                      </select>
+                    ) : (
+                      <p className="text-xl text-gray-800 font-semibold">{userData?.year_level ? `ปี ${userData.year_level}` : 'ยังไม่ได้ระบุ'}</p>
+                    )}
+                  </div>
+
+                  <div className="bg-gradient-to-br from-purple-50/50 to-fuchsia-50/50 rounded-3xl p-8 shadow-lg">
+                    <label className="block text-sm font-bold text-purple-600 mb-3 uppercase tracking-wide">
+                      เบอร์โทรศัพท์
+                    </label>
+                    {isEditMode ? (
+                      <Input
+                        type="tel"
+                        value={editForm.phone}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                        placeholder="0812345678"
+                        className="text-lg font-medium border-purple-300 focus-visible:ring-purple-500"
+                        disabled={isSaving}
+                      />
+                    ) : (
+                      <p className="text-xl text-gray-800 font-semibold">{userData?.phone || 'ยังไม่ได้ระบุ'}</p>
+                    )}
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
+          
+          {/* Change Password Dialog */}
+          <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-xl">
+                  <Lock className="w-5 h-5" />
+                  เปลี่ยนรหัสผ่าน
+                </DialogTitle>
+                <DialogDescription>
+                  กรุณากรอกรหัสผ่านเดิมและรหัสผ่านใหม่
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4 py-4">
+                <div>
+                  <Label htmlFor="current-password">รหัสผ่านปัจจุบัน</Label>
+                  <Input
+                    id="current-password"
+                    type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                    placeholder="กรอกรหัสผ่านปัจจุบัน"
+                    className="mt-1"
+                    disabled={isChangingPassword}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="new-password">รหัสผ่านใหม่</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                    placeholder="กรอกรหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)"
+                    className="mt-1"
+                    disabled={isChangingPassword}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="confirm-password">ยืนยันรหัสผ่านใหม่</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                    placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
+                    className="mt-1"
+                    disabled={isChangingPassword}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setPasswordDialogOpen(false);
+                    setPasswordForm({
+                      currentPassword: '',
+                      newPassword: '',
+                      confirmPassword: ''
+                    });
+                  }}
+                  disabled={isChangingPassword}
+                >
+                  ยกเลิก
+                </Button>
+                <Button
+                  onClick={handleChangePassword}
+                  disabled={isChangingPassword}
+                  className="bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white"
+                >
+                  {isChangingPassword ? 'กำลังเปลี่ยน...' : 'เปลี่ยนรหัสผ่าน'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Quick Actions Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-1 gap-8 mb-12">

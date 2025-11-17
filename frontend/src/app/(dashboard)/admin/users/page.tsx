@@ -19,6 +19,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
+import { useToast } from '@/components/ui/toast';
 
 type UserRow = {
   id: string;
@@ -26,9 +27,15 @@ type UserRow = {
   role: 'student' | 'president' | 'admin';
   name?: string | null;
   club?: string | null;          // ชื่อชมรม (ถ้ามี) - รูปแบบ "ชมรม A, ชมรม B"
-  clubs?: Array<{id: number; name: string; role: string}>; // ข้อมูลชมรมแบบละเอียด
+  clubs?: Array<{ id: number; name: string; role: string }>; // ข้อมูลชมรมแบบละเอียด
   status?: 'active' | 'disabled';// ออปชัน: ถ้า backend มีสถานะการใช้งาน
   created_at?: string;
+  student_id?: string | null;
+  faculty?: string | null;
+  major?: string | null;
+  birth_date?: string | null;
+  year_level?: number | null;
+  phone?: string | null;
 };
 
 type Club = { id: number; name: string };
@@ -44,6 +51,7 @@ const randomPassword = (len = 10) => {
 export default function AdminUsers() {
   const { data, isLoading, error, mutate } = useSWR<UserRow[]>('/api/users?limit=500', fetcher);
   const { data: clubList = [] } = useSWR<Club[]>('/api/clubs?limit=1000', fetcher);
+  const { success, error: showError } = useToast();
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<UserRow['role'] | 'all'>('all');
@@ -92,18 +100,30 @@ export default function AdminUsers() {
     role: UserRow['role'];
     status: 'active' | 'disabled';
     clubIds: string[]; // สำหรับประธานชมรม สามารถเลือกได้หลายชมรม
+    student_id: string;
+    faculty: string;
+    major: string;
+    birth_date: string;
+    year_level: string;
+    phone: string;
   }>({
     name: '',
     email: '',
     role: 'student',
     status: 'active',
     clubIds: [],
+    student_id: '',
+    faculty: '',
+    major: '',
+    birth_date: '',
+    year_level: '',
+    phone: '',
   });
 
   const updateRole = async (id: string, role: UserRow['role']) => {
     try {
       setBusyId(id);
-      
+
       if (role === 'president') {
         // สำหรับประธานชมรม ใช้ endpoint พิเศษ
         if (clubList.length === 0) {
@@ -113,9 +133,9 @@ export default function AdminUsers() {
 
         // ถ้ามีชมรมเดียว แต่งตั้งเป็นประธานชมรมนั้นทันที
         if (clubList.length === 1) {
-          await api.patch(`/api/users/${id}/role`, { 
+          await api.patch(`/api/users/${id}/role`, {
             role: 'president',
-            club_id: clubList[0].id 
+            club_id: clubList[0].id
           });
           await mutate();
         } else {
@@ -129,6 +149,12 @@ export default function AdminUsers() {
               role: 'president',
               status: currentUser.status || 'active',
               clubIds: [],
+              student_id: currentUser.student_id || '',
+              faculty: currentUser.faculty || '',
+              major: currentUser.major || '',
+              birth_date: currentUser.birth_date || '',
+              year_level: currentUser.year_level?.toString() || '',
+              phone: currentUser.phone || '',
             });
             setEditOpen(true);
             return; // รอให้ผู้ใช้เลือกชมรมใน modal
@@ -156,6 +182,12 @@ export default function AdminUsers() {
       role: user.role,
       status: user.status || 'active',
       clubIds: [], // จะโหลดจาก API
+      student_id: user.student_id || '',
+      faculty: user.faculty || '',
+      major: user.major || '',
+      birth_date: user.birth_date || '',
+      year_level: user.year_level?.toString() || '',
+      phone: user.phone || '',
     });
 
     // โหลดข้อมูลชมรมของผู้ใช้ (สำหรับประธาน)
@@ -167,26 +199,32 @@ export default function AdminUsers() {
         console.error('Error loading user clubs:', error);
       }
     }
-    
+
     setEditOpen(true);
   };
 
   const submitEdit = async () => {
     if (!editUser) return;
     if (!editForm.email.trim()) return alert('กรุณากรอกอีเมล');
-    
+
     // ตรวจสอบว่าถ้าเป็นประธานต้องมีชมรม
     if (editForm.role === 'president' && editForm.clubIds.length === 0) {
       return alert('กรุณาเลือกชมรมอย่างน้อย 1 ชมรมสำหรับประธานชมรม');
     }
-    
+
     try {
       setBusyId(editUser.id);
-      
+
       const payload: any = {
         name: editForm.name || null,
         email: editForm.email,
         status: editForm.status,
+        student_id: editForm.student_id || null,
+        faculty: editForm.faculty || null,
+        major: editForm.major || null,
+        birth_date: editForm.birth_date || null,
+        year_level: editForm.year_level ? Number(editForm.year_level) : null,
+        phone: editForm.phone || null,
       };
 
       // อัปเดตข้อมูลพื้นฐาน
@@ -198,11 +236,11 @@ export default function AdminUsers() {
         if (editForm.clubIds.length > 0) {
           const firstClubId = editForm.clubIds[0];
           if (firstClubId) {
-            await api.patch(`/api/users/${editUser.id}/role`, { 
+            await api.patch(`/api/users/${editUser.id}/role`, {
               role: 'president',
               club_id: firstClubId
             });
-            
+
             // ถ้ามีชมรมเพิ่มเติม ให้เพิ่มต่อ
             if (editForm.clubIds.length > 1) {
               await api.patch(`/api/users/${editUser.id}/clubs`, {
@@ -222,7 +260,7 @@ export default function AdminUsers() {
       setEditOpen(false);
       setEditUser(null);
       await mutate();
-      
+
     } catch (e: any) {
       console.error('Edit user failed:', e);
       const errorMessage = e?.response?.data?.message || e?.message || 'แก้ไขผู้ใช้ไม่สำเร็จ';
@@ -233,11 +271,29 @@ export default function AdminUsers() {
   };
 
   const toggleActive = async (u: UserRow) => {
+    const next = u.status === 'disabled' ? 'active' : 'disabled';
+    
     try {
       setBusyId(u.id);
-      const next = u.status === 'disabled' ? 'active' : 'disabled';
+      
+      // เรียก API เพื่ออัปเดต status
       await api.patch(`/api/users/${u.id}/status`, { status: next });
+      
+      // อัปเดต UI หลังจาก API สำเร็จ
       await mutate();
+            
+      success(
+        'สำเร็จ',
+        `${next === 'active' ? 'เปิด' : 'ปิด'}การใช้งานผู้ใช้แล้ว`
+      );
+    } catch (err: any) {
+      console.error('❌ Toggle active error:', err);
+      console.error('Error response:', err?.response);
+      
+      showError(
+        'เกิดข้อผิดพลาด',
+        err?.response?.data?.message || 'ไม่สามารถเปลี่ยนสถานะได้'
+      );
     } finally {
       setBusyId(null);
     }
@@ -308,6 +364,12 @@ export default function AdminUsers() {
       id: u.id,
       name: u.name || '',
       email: u.email,
+      student_id: u.student_id || '',
+      faculty: u.faculty || '',
+      major: u.major || '',
+      birth_date: u.birth_date || '',
+      year_level: u.year_level || '',
+      phone: u.phone || '',
       role: u.role,
       club: u.club || '',
       status: u.status || '',
@@ -315,9 +377,9 @@ export default function AdminUsers() {
     }));
 
     const csv = [
-      ['id', 'name', 'email', 'role', 'club', 'status', 'created_at'].join(','),
+      ['id', 'name', 'email', 'student_id', 'faculty', 'major', 'birth_date', 'year_level', 'phone', 'role', 'club', 'status', 'created_at'].join(','),
       ...rows.map(r =>
-        [r.id, r.name, r.email, r.role, r.club, r.status, r.created_at]
+        [r.id, r.name, r.email, r.student_id, r.faculty, r.major, r.birth_date, r.year_level, r.phone, r.role, r.club, r.status, r.created_at]
           .map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
       ),
     ].join('\n');
@@ -586,6 +648,8 @@ export default function AdminUsers() {
               <thead className="bg-emerald-50/70 border-b border-emerald-100">
                 <tr>
                   <th className="px-6 py-3.5 text-left text-xs font-semibold text-emerald-900">ผู้ใช้</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-emerald-900">รหัสนักศึกษา</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-emerald-900">คณะ/สาขา</th>
                   <th className="px-6 py-3.5 text-left text-xs font-semibold text-emerald-900">ชมรม</th>
                   <th className="px-6 py-3.5 text-left text-xs font-semibold text-emerald-900">บทบาท</th>
                   <th className="px-6 py-3.5 text-left text-xs font-semibold text-emerald-900">สถานะ</th>
@@ -599,6 +663,28 @@ export default function AdminUsers() {
                       <div>
                         <p className="text-sm font-medium text-emerald-900">{user.name || 'ไม่ระบุชื่อ'}</p>
                         <p className="text-sm text-emerald-700/80">{user.email}</p>
+                        {user.phone && (
+                          <p className="text-xs text-emerald-600/70 mt-0.5">📞 {user.phone}</p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-3.5">
+                      <p className="text-sm text-emerald-800">{user.student_id || '-'}</p>
+                      {user.year_level && (
+                        <p className="text-xs text-emerald-600/70">ชั้นปี {user.year_level}</p>
+                      )}
+                    </td>
+                    <td className="px-6 py-3.5">
+                      <div>
+                        {user.faculty && (
+                          <p className="text-sm text-emerald-800">{user.faculty}</p>
+                        )}
+                        {user.major && (
+                          <p className="text-xs text-emerald-600/70">{user.major}</p>
+                        )}
+                        {!user.faculty && !user.major && (
+                          <span className="text-sm text-gray-400">-</span>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-3.5">
@@ -607,7 +693,7 @@ export default function AdminUsers() {
                           {/* แสดงจาก clubs array ถ้ามี */}
                           {user.clubs && user.clubs.length > 0 ? (
                             user.clubs.map((club, index) => (
-                              <span 
+                              <span
                                 key={club.id}
                                 className="inline-block px-2 py-1 bg-blue-50 text-blue-800 text-xs rounded-md border border-blue-200 mr-1 mb-1"
                               >
@@ -635,11 +721,10 @@ export default function AdminUsers() {
                       </span>
                     </td>
                     <td className="px-6 py-3.5">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border ${
-                        user.status === 'disabled'
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border ${user.status === 'disabled'
                           ? 'bg-gray-100 text-gray-700 border-gray-200'
                           : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                      }`}>
+                        }`}>
                         {user.status === 'disabled' ? 'ปิดการใช้งาน' : 'ใช้งานอยู่'}
                       </span>
                     </td>
@@ -656,7 +741,6 @@ export default function AdminUsers() {
                               disabled={busyId === user.id}
                             >
                               <SelectValue />
-                              <ChevronDown className="ml-auto h-4 w-4 text-emerald-600" />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="student">นักเรียน</SelectItem>
@@ -711,7 +795,26 @@ export default function AdminUsers() {
                   <div className="flex-1">
                     <h3 className="text-sm font-medium text-emerald-900">{user.name || 'ไม่ระบุชื่อ'}</h3>
                     <p className="text-sm text-emerald-700/80 mt-1">{user.email}</p>
-                    
+
+                    {/* Profile info */}
+                    <div className="mt-2 space-y-1">
+                      {user.student_id && (
+                        <p className="text-xs text-emerald-600/70">รหัส: {user.student_id}</p>
+                      )}
+                      {user.phone && (
+                        <p className="text-xs text-emerald-600/70">📞 {user.phone}</p>
+                      )}
+                      {user.faculty && (
+                        <p className="text-xs text-emerald-600/70">คณะ: {user.faculty}</p>
+                      )}
+                      {user.major && (
+                        <p className="text-xs text-emerald-600/70">สาขา: {user.major}</p>
+                      )}
+                      {user.year_level && (
+                        <p className="text-xs text-emerald-600/70">ชั้นปี: {user.year_level}</p>
+                      )}
+                    </div>
+
                     {/* แสดงชมรมสำหรับประธาน */}
                     {user.role === 'president' && (
                       <div className="mt-2">
@@ -719,7 +822,7 @@ export default function AdminUsers() {
                         <div className="flex flex-wrap gap-1">
                           {user.clubs && user.clubs.length > 0 ? (
                             user.clubs.map((club) => (
-                              <span 
+                              <span
                                 key={club.id}
                                 className="inline-block px-2 py-1 bg-blue-50 text-blue-800 text-xs rounded-md border border-blue-200"
                               >
@@ -736,13 +839,12 @@ export default function AdminUsers() {
                         </div>
                       </div>
                     )}
-                    
+
                     <div className="mt-2">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border ${
-                        user.status === 'disabled'
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border ${user.status === 'disabled'
                           ? 'bg-gray-100 text-gray-700 border-gray-200'
                           : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                      }`}>
+                        }`}>
                         {user.status === 'disabled' ? 'ปิดการใช้งาน' : 'ใช้งานอยู่'}
                       </span>
                     </div>
@@ -841,11 +943,10 @@ export default function AdminUsers() {
                       <Button
                         key={pageNum}
                         onClick={() => setCurrentPage(pageNum)}
-                        className={`w-9 h-9 text-sm rounded-md ${
-                          active
+                        className={`w-9 h-9 text-sm rounded-md ${active
                             ? 'bg-emerald-600 text-white'
                             : 'border border-emerald-300 hover:bg-emerald-50'
-                        }`}
+                          }`}
                       >
                         {pageNum}
                       </Button>
@@ -1122,6 +1223,87 @@ export default function AdminUsers() {
                     <SelectItem value="disabled">ปิดการใช้งาน</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            {/* Profile fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="edit-student-id">รหัสนักศึกษา</Label>
+                <Input
+                  id="edit-student-id"
+                  value={editForm.student_id}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setEditForm(s => ({ ...s, student_id: value }));
+                  }}
+                  className="rounded-xl focus-visible:ring-emerald-500"
+                  placeholder="10 หลัก"
+                  maxLength={10}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-phone">เบอร์โทรศัพท์</Label>
+                <Input
+                  id="edit-phone"
+                  value={editForm.phone}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setEditForm(s => ({ ...s, phone: value }));
+                  }}
+                  className="rounded-xl focus-visible:ring-emerald-500"
+                  placeholder="เริ่มต้นด้วย 0"
+                  maxLength={10}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="edit-faculty">คณะ</Label>
+                <Input
+                  id="edit-faculty"
+                  value={editForm.faculty}
+                  onChange={(e) => setEditForm(s => ({ ...s, faculty: e.target.value }))}
+                  className="rounded-xl focus-visible:ring-emerald-500"
+                  placeholder="เช่น วิทยาศาสตร์"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-major">สาขา</Label>
+                <Input
+                  id="edit-major"
+                  value={editForm.major}
+                  onChange={(e) => setEditForm(s => ({ ...s, major: e.target.value }))}
+                  className="rounded-xl focus-visible:ring-emerald-500"
+                  placeholder="เช่น วิทยาการคอมพิวเตอร์"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="edit-birth-date">วันเกิด</Label>
+                <Input
+                  id="edit-birth-date"
+                  type="date"
+                  value={editForm.birth_date}
+                  onChange={(e) => setEditForm(s => ({ ...s, birth_date: e.target.value }))}
+                  className="rounded-xl focus-visible:ring-emerald-500"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-year-level">ชั้นปี</Label>
+                <Input
+                  id="edit-year-level"
+                  type="number"
+                  min="1"
+                  max="6"
+                  value={editForm.year_level}
+                  onChange={(e) => setEditForm(s => ({ ...s, year_level: e.target.value }))}
+                  className="rounded-xl focus-visible:ring-emerald-500"
+                  placeholder="1-6"
+                />
               </div>
             </div>
 

@@ -6,15 +6,17 @@ function toDate(x) {
   return x == null ? null : x;
 }
 
-/** คอลัมน์ฐาน + cover_url (เลือก is_cover ก่อน, ไม่งั้นรูปแรก) + ข้อมูลชมรม */
+/** คอลัมน์ฐาน + cover_url (เลือก is_cover ก่อน, ไม่งั้นรูปแรก) + ข้อมูลชมรม + จำนวนผู้เข้าร่วมที่อนุมัติแล้ว */
 const BASE_COLS = `
   activities.id, activities.name, activities.description, activities.start_date, activities.end_date, 
   activities.location, activities.max_participants, activities.created_by, activities.status, 
   activities.created_at, activities.updated_at, activities.club_id,
   activities.registration_start_date, activities.registration_end_date, activities.registration_deadline,
   activities.start_time, activities.end_time, activities.registration_start_time, activities.registration_end_time,
+  activities.approval_mode,
   clubs.name as club_name,
   clubs.description as club_description,
+  (SELECT COUNT(*)::int FROM registrations WHERE registrations.activity_id = activities.id AND registrations.status = 'approved') as approved_count,
   COALESCE(
     (
       SELECT ai1.image_url
@@ -50,6 +52,7 @@ const BASE_COLS = `
  * @param {string|null} [data.end_time]
  * @param {string|null} [data.registration_start_time]
  * @param {string|null} [data.registration_end_time]
+ * @param {'auto'|'manual'} [data.approval_mode]
  */
 async function create(data) {
   const {
@@ -68,20 +71,21 @@ async function create(data) {
     end_time = null,
     registration_start_time = null,
     registration_end_time = null,
+    approval_mode = 'manual',
   } = data;
 
   const { rows } = await query(
     `INSERT INTO activities (
        name, description, start_date, end_date, location, max_participants, 
        created_by, status, club_id, registration_start_date, registration_end_date,
-       start_time, end_time, registration_start_time, registration_end_time
+       start_time, end_time, registration_start_time, registration_end_time, approval_mode
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
      RETURNING id`,
     [
       name, description, toDate(start_date), toDate(end_date), location, max_participants,
       created_by, status, club_id, toDate(registration_start_date), toDate(registration_end_date),
-      start_time, end_time, registration_start_time, registration_end_time
+      start_time, end_time, registration_start_time, registration_end_time, approval_mode
     ]
   );
 
@@ -210,7 +214,8 @@ async function update(id, data, _actor) {
   const allowed = [
     'name', 'description', 'start_date', 'end_date', 'location', 'max_participants',
     'registration_start_date', 'registration_end_date', 
-    'start_time', 'end_time', 'registration_start_time', 'registration_end_time'
+    'start_time', 'end_time', 'registration_start_time', 'registration_end_time',
+    'approval_mode'
   ];
   const sets = [];
   const values = [];

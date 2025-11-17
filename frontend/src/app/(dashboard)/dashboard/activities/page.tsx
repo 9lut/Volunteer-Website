@@ -538,7 +538,7 @@ export default function ActivitiesPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-9 rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                              className="cursor-pointer h-9 rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                               onClick={() => router.push(`/dashboard/activities/${a.id}/edit`)}
                             >
                               <Pencil className="w-4 h-4 mr-1.5" />
@@ -547,7 +547,7 @@ export default function ActivitiesPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-9 rounded-xl border-sky-200 text-sky-700 hover:bg-sky-50 col-span-2"
+                              className="cursor-pointer h-9 rounded-xl border-sky-200 text-sky-700 hover:bg-sky-50 col-span-2"
                               onClick={() => router.push(`/dashboard/activities/${a.id}/participants`)}
                             >
                               <Users className="w-4 h-4 mr-1.5" /> จัดการผู้เข้าร่วม
@@ -558,7 +558,7 @@ export default function ActivitiesPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-9 rounded-xl border-red-200 text-red-700 hover:bg-red-100 col-span-2"
+                            className="cursor-pointer h-9 rounded-xl border-red-200 text-red-700 hover:bg-red-100 col-span-2"
                             onClick={() => askDelete(a)}
                           >
                             <Trash2 className="w-4 h-4 mr-1.5" />
@@ -620,7 +620,7 @@ export default function ActivitiesPage() {
                               <Button 
                                 size="sm" 
                                 variant="outline" 
-                                className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50" 
+                                className="cursor-pointer rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50" 
                                 onClick={() => router.push(`/dashboard/activities/${a.id}/edit`)}
                               >
                                 <Pencil className="w-4 h-4 mr-1.5" /> แก้ไข
@@ -628,7 +628,7 @@ export default function ActivitiesPage() {
                               <Button 
                                 size="sm" 
                                 variant="outline" 
-                                className="rounded-xl border-sky-200 text-sky-700 hover:bg-sky-50" 
+                                className="cursor-pointer rounded-xl border-sky-200 text-sky-700 hover:bg-sky-50" 
                                 onClick={() => router.push(`/dashboard/activities/${a.id}/participants`)}
                               >
                                 <Users className="w-4 h-4 mr-1.5" /> จัดการผู้เข้าร่วม
@@ -639,7 +639,7 @@ export default function ActivitiesPage() {
                             <Button 
                               size="sm" 
                               variant="outline" 
-                              className="rounded-xl border-red-200 text-red-700 hover:bg-red-100" 
+                              className="cursor-pointer rounded-xl border-red-200 text-red-700 hover:bg-red-100" 
                               onClick={() => askDelete(a)}
                             >
                               <Trash2 className="w-4 h-4 mr-1.5" /> ลบ
@@ -870,10 +870,10 @@ export default function ActivitiesPage() {
             การลบจะไม่สามารถกู้คืนได้
           </p>
           <DialogFooter className="mt-2">
-            <Button variant="outline" onClick={() => setConfirmOpen(false)} className="rounded-xl">
+            <Button variant="outline" onClick={() => setConfirmOpen(false)} className="cursor-pointer rounded-xl">
               ยกเลิก
             </Button>
-            <Button onClick={confirmDelete} className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white">
+            <Button onClick={confirmDelete} className="cursor-pointer rounded-xl bg-rose-600 hover:bg-rose-700 text-white">
               ลบเลย
             </Button>
           </DialogFooter>

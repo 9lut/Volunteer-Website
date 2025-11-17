@@ -17,6 +17,12 @@ export default function RegisterPage() {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [studentId, setStudentId] = useState('');
+  const [faculty, setFaculty] = useState('');
+  const [major, setMajor] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [yearLevel, setYearLevel] = useState('');
+  const [phone, setPhone] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -26,13 +32,42 @@ export default function RegisterPage() {
     e.preventDefault();
     setErr(null);
     
+    // Validation - บังคับกรอกทุกฟิลด์
+    if (!name.trim()) return setErr('กรุณากรอกชื่อ-นามสกุล');
+    if (!studentId.trim()) return setErr('กรุณากรอกรหัสนักศึกษา');
+    if (!faculty.trim()) return setErr('กรุณากรอกคณะ');
+    if (!major.trim()) return setErr('กรุณากรอกสาขา');
+    if (!birthDate) return setErr('กรุณาเลือกวันเกิด');
+    if (!yearLevel) return setErr('กรุณาเลือกชั้นปี');
+    if (!phone.trim()) return setErr('กรุณากรอกเบอร์โทรศัพท์');
     if (!email || !password) return setErr('กรุณากรอกอีเมลและรหัสผ่าน');
+    
     if (password.length < 8) return setErr('รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร');
     if (password !== confirm) return setErr('รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน');
     
+    // ตรวจสอบรหัสนักศึกษา
+    if (studentId && !/^\d{10}$/.test(studentId)) {
+      return setErr('รหัสนักศึกษาต้องเป็นตัวเลข 10 หลักเท่านั้น');
+    }
+    
+    // ตรวจสอบเบอร์โทร
+    if (phone && !/^0\d{9}$/.test(phone)) {
+      return setErr('เบอร์โทรศัพท์ต้องขึ้นต้นด้วย 0 และมี 10 หลัก');
+    }
+    
     try {
       setLoading(true);
-      await api.post('/api/auth/register', { email, password, name: name || undefined });
+      await api.post('/api/auth/register', { 
+        email, 
+        password, 
+        name: name.trim(),
+        student_id: studentId.trim(),
+        faculty: faculty.trim(),
+        major: major.trim(),
+        birth_date: birthDate,
+        year_level: parseInt(yearLevel),
+        phone: phone.trim(),
+      });
       
       // Show success state
       setSuccess(true);
@@ -79,31 +114,124 @@ export default function RegisterPage() {
 
             <form className="space-y-4" onSubmit={submit}>
               <div className="space-y-1.5">
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700">ชื่อ (ไม่บังคับ)</label>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700">ชื่อ-นามสกุล <span className="text-red-500">*</span></label>
                 <input
                   id="name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="ชื่อที่ใช้แสดง"
+                  placeholder="ชื่อ-นามสกุล"
+                  required
                   className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900 placeholder:text-gray-400 outline-none ring-0 transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">อีเมล</label>
+                <label htmlFor="student_id" className="block text-sm font-medium text-gray-700">รหัสนักศึกษา (10 หลัก) <span className="text-red-500">*</span></label>
+                <input
+                  id="student_id"
+                  type="text"
+                  value={studentId}
+                  onChange={(e) => setStudentId(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="6512345678"
+                  maxLength={10}
+                  required
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900 placeholder:text-gray-400 outline-none ring-0 transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
+                />
+                <p className="text-xs text-gray-500">ตัวเลข 10 หลักเท่านั้น (ห้ามซ้ำในระบบ)</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="faculty" className="block text-sm font-medium text-gray-700">คณะ <span className="text-red-500">*</span></label>
+                  <input
+                    id="faculty"
+                    type="text"
+                    value={faculty}
+                    onChange={(e) => setFaculty(e.target.value)}
+                    placeholder="วิศวกรรมศาสตร์"
+                    required
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900 placeholder:text-gray-400 outline-none ring-0 transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="major" className="block text-sm font-medium text-gray-700">สาขา <span className="text-red-500">*</span></label>
+                  <input
+                    id="major"
+                    type="text"
+                    value={major}
+                    onChange={(e) => setMajor(e.target.value)}
+                    placeholder="วิศวกรรมคอมพิวเตอร์"
+                    required
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900 placeholder:text-gray-400 outline-none ring-0 transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="birth_date" className="block text-sm font-medium text-gray-700">วันเกิด <span className="text-red-500">*</span></label>
+                  <input
+                    id="birth_date"
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    required
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900 placeholder:text-gray-400 outline-none ring-0 transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="year_level" className="block text-sm font-medium text-gray-700">ชั้นปี <span className="text-red-500">*</span></label>
+                  <select
+                    id="year_level"
+                    value={yearLevel}
+                    onChange={(e) => setYearLevel(e.target.value)}
+                    required
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900 outline-none ring-0 transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
+                  >
+                    <option value="">เลือกชั้นปี</option>
+                    <option value="1">ปี 1</option>
+                    <option value="2">ปี 2</option>
+                    <option value="3">ปี 3</option>
+                    <option value="4">ปี 4</option>
+                    <option value="5">ปี 5</option>
+                    <option value="6">ปี 6</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700">เบอร์โทรศัพท์ <span className="text-red-500">*</span></label>
+                <input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="0812345678"
+                  maxLength={10}
+                  required
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900 placeholder:text-gray-400 outline-none ring-0 transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
+                />
+                <p className="text-xs text-gray-500">ขึ้นต้นด้วย 0 และมี 10 หลัก</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700">อีเมล <span className="text-red-500">*</span></label>
                 <input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@university.ac.th"
+                  required
                   className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900 placeholder:text-gray-400 outline-none ring-0 transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">รหัสผ่าน</label>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">รหัสผ่าน <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <input
                     id="password"
@@ -111,6 +239,7 @@ export default function RegisterPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="อย่างน้อย 8 ตัวอักษร"
+                    required
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 pr-10 text-gray-900 placeholder:text-gray-400 outline-none ring-0 transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
                   />
                   <button
@@ -124,13 +253,14 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="confirm" className="block text-sm font-medium text-gray-700">ยืนยันรหัสผ่าน</label>
+                <label htmlFor="confirm" className="block text-sm font-medium text-gray-700">ยืนยันรหัสผ่าน <span className="text-red-500">*</span></label>
                 <input
                   id="confirm"
                   type={showPwd ? 'text' : 'password'}
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   placeholder="พิมพ์รหัสผ่านอีกครั้ง"
+                  required
                   className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900 placeholder:text-gray-400 outline-none ring-0 transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
                 />
               </div>

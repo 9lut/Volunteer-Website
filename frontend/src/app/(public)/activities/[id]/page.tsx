@@ -1,9 +1,10 @@
 'use client';
 import { useParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useActivity } from '@/hooks/useActivities';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyRegistrations } from '@/hooks/useRegistrations';
+import { useActivityImages } from '@/hooks/useActivityImages';
 import { api } from '@/lib/axios';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { LoadingButton } from '@/components/ui/loading-button';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useToast } from '@/components/ui/toast';
-import { CalendarDays, MapPin, ArrowLeft, Clock, Users, CheckCircle } from 'lucide-react';
+import { CalendarDays, MapPin, ArrowLeft, Clock, Users, CheckCircle, ChevronLeft, ChevronRight, ImageIcon } from 'lucide-react';
 import Image from 'next/image';
 import { toAbsoluteImageUrl } from '@/lib/helpers/url';
 
@@ -22,9 +23,13 @@ export default function ActivityDetail() {
   const router = useRouter();
   const { user } = useAuth();
   const { activity, isLoading } = useActivity(id);
+  const { images, isLoading: imagesLoading } = useActivityImages(id);
   const { regs, mutate } = useMyRegistrations(!!user);
   const toast = useToast();
 
+  // Image gallery state
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
   // Loading states
   const [isRegistering, setIsRegistering] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -32,6 +37,32 @@ export default function ActivityDetail() {
   // Confirmation dialog states
   const [showRegisterConfirm, setShowRegisterConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  // Prepare images array
+  const activityImages = images && images.length > 0 
+    ? images.map(img => toAbsoluteImageUrl(img.image_url))
+    : activity?.cover_url 
+      ? [toAbsoluteImageUrl(activity.cover_url)]
+      : [];
+
+  // Auto-advance slideshow
+  useEffect(() => {
+    if (activityImages.length <= 1) return;
+    
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % activityImages.length);
+    }, 5000); // Change image every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [activityImages.length]);
+
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % activityImages.length);
+  };
+
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + activityImages.length) % activityImages.length);
+  };
 
   if (isLoading) {
     return (
@@ -65,10 +96,11 @@ export default function ActivityDetail() {
   const registrationDeadline = activity.registration_deadline ? new Date(activity.registration_deadline) : startDate;
   
   // สถานะกิจกรรม
+  const approvedCount = activity.approved_count || 0;
   const isActivityExpired = endDate < now; // กิจกรรมผ่านไปแล้ว
   const isActivityStarted = startDate <= now; // กิจกรรมเริ่มแล้ว
   const isRegistrationClosed = registrationDeadline <= now; // ปิดรับสมัครแล้ว
-  const isActivityFull = activity.max_participants && activity.current_participants >= activity.max_participants;
+  const isActivityFull = activity.max_participants && approvedCount >= activity.max_participants;
   const isActivityApproved = activity.status === 'approved';
 
   // สถานะการสมัคร
@@ -158,98 +190,163 @@ export default function ActivityDetail() {
     });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return 'text-green-700 border-green-200';
-      case 'pending':
-        return 'text-yellow-700 border-yellow-200';
-      case 'rejected':
-        return 'text-red-700 border-red-200';
-      default:
-        return 'text-gray-700 border-gray-200';
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'approved': return 'อนุมัติแล้ว';
-      case 'pending': return 'รออนุมัติ';
-      case 'rejected': return 'ไม่อนุมัติ';
-      default: return status;
-    }
-  };
-
-  const coverSrc = toAbsoluteImageUrl(activity.cover_url);
-
   return (
-    <div className="min-h-screen">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100">
-        <div className="max-w-4xl mx-auto px-6 py-4">
-          <Button variant="ghost" onClick={() => router.back()} className="mb-2">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
+      {/* Header with Glassmorphism */}
+      <div className="bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <Button 
+            variant="ghost" 
+            onClick={() => router.back()} 
+            className="hover:bg-white/50 transition-all duration-200"
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             กลับ
           </Button>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Cover Image */}
-            {coverSrc ? (
-              <div className="relative w-full h-64 md:h-80 rounded-2xl overflow-hidden bg-gray-100">
-                <Image
-                  src={coverSrc}
-                  alt={activity.name || 'Activity cover image'}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 800px"
-                  className="object-cover"
-                  priority
-                />
+          <div className="lg:col-span-2 space-y-8">
+            {/* Image Gallery Section */}
+            <div className="relative group">
+              {activityImages.length > 0 ? (
+                <div className="relative w-full h-[400px] md:h-[500px] rounded-2xl overflow-hidden shadow-2xl">
+                  {/* Main Image */}
+                  <Image
+                    src={activityImages[currentImageIndex]}
+                    alt={`${activity?.name} - รูปที่ ${currentImageIndex + 1}`}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 66vw"
+                    className="object-cover transition-transform duration-700 group-hover:scale-105"
+                    priority
+                  />
+                  
+                  {/* Gradient Overlays */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10" />
 
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-              </div>
-            ) : (
-              <div className="flex h-64 md:h-80 items-center justify-center rounded-2xl bg-gray-100 text-gray-400">
-                ไม่มีรูปภาพ
-              </div>
-            )}
+                  {/* Image Counter */}
+                  {activityImages.length > 1 && (
+                    <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium flex items-center space-x-2">
+                      <ImageIcon className="w-4 h-4" />
+                      <span>{currentImageIndex + 1} / {activityImages.length}</span>
+                    </div>
+                  )}
 
+                  {/* Navigation Buttons */}
+                  {activityImages.length > 1 && (
+                    <>
+                      <button
+                        onClick={prevImage}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white p-3 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-300 transform hover:scale-110"
+                        aria-label="Previous image"
+                      >
+                        <ChevronLeft className="w-6 h-6 text-gray-900" />
+                      </button>
+                      <button
+                        onClick={nextImage}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white p-3 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-300 transform hover:scale-110"
+                        aria-label="Next image"
+                      >
+                        <ChevronRight className="w-6 h-6 text-gray-900" />
+                      </button>
+                    </>
+                  )}
 
-            {/* Title & Status */}
-            <div className="space-y-3">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <h1 className="text-3xl font-bold text-gray-900 leading-tight">
-                    {activity.name}
-                  </h1>
-                  {activity.club_name && (
-                    <div className="mt-2 flex items-center text-sm text-gray-600">
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                      <span className="font-medium">จัดโดย:</span>
-                      <span className="ml-1">{activity.club_name}</span>
+                  {/* Image Indicators */}
+                  {activityImages.length > 1 && (
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
+                      {activityImages.map((_, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setCurrentImageIndex(index)}
+                          className={`transition-all duration-300 rounded-full ${
+                            index === currentImageIndex
+                              ? 'w-8 h-2 bg-white'
+                              : 'w-2 h-2 bg-white/50 hover:bg-white/75'
+                          }`}
+                          aria-label={`ไปยังรูปที่ ${index + 1}`}
+                        />
+                      ))}
                     </div>
                   )}
                 </div>
-                <Badge className={`${getStatusColor(activity.status)} px-3 py-1`}>
-                  {getStatusText(activity.status)}
-                </Badge>
+              ) : (
+                <div className="flex h-[400px] md:h-[500px] items-center justify-center rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 text-gray-400 shadow-xl">
+                  <div className="text-center">
+                    <ImageIcon className="w-20 h-20 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-medium">ไม่มีรูปภาพ</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Thumbnail Gallery */}
+              {activityImages.length > 1 && (
+                <div className="mt-4 grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                  {activityImages.map((img, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentImageIndex(index)}
+                      className={`relative aspect-square rounded-lg overflow-hidden transition-all duration-300 ${
+                        index === currentImageIndex
+                          ? 'ring-4 ring-blue-500 scale-95'
+                          : 'ring-2 ring-gray-200 hover:ring-blue-300 opacity-70 hover:opacity-100'
+                      }`}
+                    >
+                      <Image
+                        src={img}
+                        alt={`Thumbnail ${index + 1}`}
+                        fill
+                        sizes="100px"
+                        className="object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+
+            {/* Title & Status */}
+            <div className="space-y-4 animate-fade-in">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-3 bg-gradient-to-r from-gray-900 via-blue-900 to-purple-900 bg-clip-text text-transparent">
+                    {activity.name}
+                  </h1>
+                  {activity.club_name && (
+                    <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-full text-sm">
+                      <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      <span className="font-semibold text-indigo-900">จัดโดย:</span>
+                      <span className="ml-2 text-indigo-700">{activity.club_name}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Description */}
             {activity.description && (
-              <Card className="border-0 shadow-sm">
-                <CardContent className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">รายละเอียดกิจกรรม</h3>
-                  <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                    {activity.description}
-                  </p>
+              <Card className="border-0 shadow-xl bg-gradient-to-br from-white to-gray-50 hover:shadow-2xl transition-shadow duration-300">
+                <CardContent className="p-8">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900">รายละเอียดกิจกรรม</h3>
+                  </div>
+                  <div className="prose prose-lg max-w-none">
+                    <p className="text-gray-700 leading-relaxed whitespace-pre-wrap text-lg">
+                      {activity.description}
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -258,7 +355,7 @@ export default function ActivityDetail() {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Activity Info Card */}
-            <Card className="border-0 shadow-sm sticky top-6">
+            <Card className="border-0 shadow-sm top-6">
               <CardContent className="p-6 space-y-6">
                 <h3 className="text-lg font-semibold text-gray-900">ข้อมูลกิจกรรม</h3>
 
@@ -366,15 +463,25 @@ export default function ActivityDetail() {
                 </div>
 
                 {/* Participants (if available) */}
-                {(activity.max_participants || activity.current_participants) && (
+                {activity.max_participants && (
                   <div className="flex items-start space-x-3">
                     <Users className="w-5 h-5 text-purple-600 mt-1 flex-shrink-0" />
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900">ผู้เข้าร่วม</p>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {activity.current_participants || 0}
-                        {activity.max_participants && ` / ${activity.max_participants}`} คน
-                      </p>
+                      <div className="mt-1">
+                        <p className={`text-sm font-semibold ${
+                          approvedCount >= activity.max_participants 
+                            ? 'text-red-600' 
+                            : 'text-green-600'
+                        }`}>
+                          {approvedCount} / {activity.max_participants} คน
+                        </p>
+                        {approvedCount >= activity.max_participants && (
+                          <Badge variant="destructive" className="mt-1 text-xs">
+                            เต็มแล้ว
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -473,7 +580,7 @@ export default function ActivityDetail() {
                         <div>
                           <p className="font-medium">กิจกรรมเต็มแล้ว</p>
                           <p className="text-sm text-red-700">
-                            จำนวนผู้เข้าร่วมเต็มแล้ว ({activity.current_participants}/{activity.max_participants})
+                            จำนวนผู้เข้าร่วมเต็มแล้ว ({approvedCount}/{activity.max_participants})
                           </p>
                         </div>
                       </div>

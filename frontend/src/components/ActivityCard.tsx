@@ -67,7 +67,9 @@ export default function ActivityCard({ a }: { a: Activity }) {
 
   // ตรวจสอบสถานะการสมัคร
   const isActivityApproved = a.status === 'approved';
-  const isActivityFull = (a as any).max_participants && (a as any).current_participants >= (a as any).max_participants;
+  const approvedCount = a.approved_count || 0;
+  const maxParticipants = a.max_participants || 0;
+  const isActivityFull = maxParticipants > 0 && approvedCount >= maxParticipants;
 
   return (
     <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 bg-white border border-gray-200 hover:border-green-300 group">
@@ -218,15 +220,17 @@ export default function ActivityCard({ a }: { a: Activity }) {
         )}
 
         {/* Participants */}
-        {(a as any).max_participants && (
+        {a.max_participants && (
           <div className="flex items-center text-sm text-gray-600">
             <Users className="w-4 h-4 mr-2 text-green-500" />
-            <span>
-              {(a as any).current_participants || 0} / {(a as any).max_participants} คน
+            <span className="font-medium">
+              ผู้เข้าร่วม: <span className={`${isActivityFull ? 'text-red-600' : 'text-green-600'}`}>
+                {approvedCount}
+              </span> / {a.max_participants} คน
             </span>
             {isActivityFull && (
               <Badge variant="destructive" className="ml-2 text-xs">
-                เต็ม
+                เต็มแล้ว
               </Badge>
             )}
           </div>

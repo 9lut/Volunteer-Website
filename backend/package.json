@@ -8,9 +8,13 @@
     "test": "xo",
     "lint": "xo",
     "format": "xo --fix",
-    "start": "node ./bin/start.js",
+    "start": "node ./bin/start-with-migration.js",
+    "start:migrate": "node ./bin/start-with-migration.js",
+    "start:simple": "node ./bin/start.js",
     "dev": "nodemon ./bin/start.js",
     "migrate": "node ./bin/migrate.js",
+    "migrate:up": "node ./bin/migrate.js up",
+    "migrate:down": "node ./bin/migrate.js down",
     "migrate:create": "migrate create --migrations-dir='./src/migrations'"
   },
   "keywords": [

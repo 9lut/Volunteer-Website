@@ -95,6 +95,12 @@ router.get('/', authorize(['admin']), async (req, res) => {
           name: u.name,
           status: u.status || 'active',
           created_at: u.created_at,
+          student_id: u.student_id || null,
+          faculty: u.faculty || null,
+          major: u.major || null,
+          birth_date: u.birth_date || null,
+          year_level: u.year_level || null,
+          phone: u.phone || null,
           club: clubs.length > 0 ? clubs.map(c => c.name).join(', ') : null,
           clubs: clubs
         };
@@ -238,7 +244,7 @@ router.get('/stats', requireAuth, authorize(['admin']), async (_req, res) => {
 router.patch('/:id', requireAuth, authorize(['admin']), async (req, res) => {
   try {
     const id = req.params.id;
-    const { name, email, role, status } = req.body || {};
+    const { name, email, role, status, student_id, faculty, major, birth_date, year_level, phone } = req.body || {};
     
     if (!id) return res.status(400).json({ message: 'User ID required' });
 
@@ -247,11 +253,32 @@ router.patch('/:id', requireAuth, authorize(['admin']), async (req, res) => {
       return res.status(400).json({ message: 'Invalid email format' });
     }
 
+    // ตรวจสอบ student_id ถ้ามีการส่งมา
+    if (student_id !== undefined) {
+      const studentIdStr = String(student_id).trim();
+      if (studentIdStr && !/^\d{10}$/.test(studentIdStr)) {
+        return res.status(400).json({ message: 'Student ID must be exactly 10 digits' });
+      }
+      // ตรวจสอบว่ารหัสนักศึกษาซ้ำกับคนอื่นหรือไม่
+      if (studentIdStr) {
+        const existing = await Users.existsByStudentId(studentIdStr);
+        if (existing && existing.id !== id) {
+          return res.status(409).json({ message: 'Student ID already exists' });
+        }
+      }
+    }
+
     const updates = {};
     if (name !== undefined) updates.name = name ? String(name).trim() : null;
     if (email !== undefined) updates.email = String(email).trim().toLowerCase();
     if (role !== undefined) updates.role = role;
     if (status !== undefined) updates.status = status;
+    if (student_id !== undefined) updates.student_id = student_id ? String(student_id).trim() : null;
+    if (faculty !== undefined) updates.faculty = faculty ? String(faculty).trim() : null;
+    if (major !== undefined) updates.major = major ? String(major).trim() : null;
+    if (birth_date !== undefined) updates.birth_date = birth_date || null;
+    if (year_level !== undefined) updates.year_level = year_level ? Number(year_level) : null;
+    if (phone !== undefined) updates.phone = phone ? String(phone).trim() : null;
 
     const updated = await Users.updateUser(id, updates);
     if (!updated) return res.status(404).json({ message: 'User not found' });

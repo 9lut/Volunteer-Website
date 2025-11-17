@@ -17,14 +17,16 @@ export type Activity = {
       status: 'pending' | 'approved' | 'rejected' | 'completed';
       max_participants?: number;
       current_participants?: number;
-      cover_url?: string; // Optional for backward compatibility
+      approved_count?: number;
+      approval_mode?: 'auto' | 'manual';
+      cover_url?: string;
       images?: ActivityImage[];
       created_at: string;
       updated_at: string;
       
-      // Club information
-      club_id?: string | null;
-      club_name?: string | null;
+      // Club information - required
+      club_id: string | number;
+      club_name: string;
       club_description?: string | null;
       
       // Registration period

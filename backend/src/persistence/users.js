@@ -17,7 +17,8 @@ function normalizeEmail(email) {
  */
 async function find(email) {
   const { rows } = await query(
-    `SELECT id, email, password, role, name, club_id
+    `SELECT id, email, password, role, name, club_id, status,
+            student_id, faculty, major, birth_date, year_level, phone
      FROM users
      WHERE email = $1
      LIMIT 1`,
@@ -33,7 +34,9 @@ async function find(email) {
  */
 async function findById(id) {
   const { rows } = await query(
-    `SELECT id, email, role, name
+    `SELECT id, email, role, name, status,
+            student_id, faculty, major, birth_date, year_level, phone,
+            created_at, updated_at
      FROM users
      WHERE id = $1
      LIMIT 1`,
@@ -59,20 +62,54 @@ async function existsByEmail(email) {
 }
 
 /**
+ * ตรวจสอบว่ามีรหัสนักศึกษานี้ในระบบหรือยัง
+ * @param {string} studentId
+ * @returns {Promise<boolean>}
+ */
+async function existsByStudentId(studentId) {
+  if (!studentId) return false;
+  const { rows } = await query(
+    `SELECT 1
+     FROM users
+     WHERE student_id = $1
+     LIMIT 1`,
+    [studentId]
+  );
+  return !!rows[0];
+}
+
+/**
  * สร้างผู้ใช้ใหม่
  * @param {object} data
  * @param {string} data.email
  * @param {string} data.password (hashed)
  * @param {string} [data.role='student']
  * @param {string} [data.name]
+ * @param {string} [data.student_id]
+ * @param {string} [data.faculty]
+ * @param {string} [data.major]
+ * @param {string} [data.birth_date]
+ * @param {number} [data.year_level]
+ * @param {string} [data.phone]
  * @returns {Promise<object>} user
  */
-async function create({ email, password, role = 'student', name = null }) {
+async function create({ 
+  email, 
+  password, 
+  role = 'student', 
+  name = null,
+  student_id = null,
+  faculty = null,
+  major = null,
+  birth_date = null,
+  year_level = null,
+  phone = null
+}) {
   const { rows } = await query(
-    `INSERT INTO users (email, password, role, name)
-     VALUES ($1, $2, $3, $4)
-     RETURNING id, email, role, name`,
-    [normalizeEmail(email), password, role, name]
+    `INSERT INTO users (email, password, role, name, student_id, faculty, major, birth_date, year_level, phone)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     RETURNING id, email, role, name, student_id, faculty, major, birth_date, year_level, phone`,
+    [normalizeEmail(email), password, role, name, student_id, faculty, major, birth_date, year_level, phone]
   );
   return rows[0];
 }
@@ -86,9 +123,11 @@ async function create({ email, password, role = 'student', name = null }) {
  */
 async function findAll({ limit = 50, offset = 0 } = {}) {
   const { rows } = await query(
-    `SELECT id, email, role, name
+    `SELECT id, email, role, name, status,
+            student_id, faculty, major, birth_date, year_level, phone,
+            created_at, updated_at
      FROM users
-     ORDER BY id DESC
+     ORDER BY created_at DESC
      LIMIT $1 OFFSET $2`,
     [limit, offset]
   );
@@ -213,13 +252,47 @@ async function setRole(user_id, role) {
  * @returns {Promise<object|null>}
  */
 async function updateProfile(user_id, profileData) {
-  const { name } = profileData;
+  const fields = [];
+  const values = [user_id];
+  let paramIndex = 2;
+
+  // ฟิลด์ที่แก้ไขได้
+  if (profileData.name !== undefined) {
+    fields.push(`name = $${paramIndex++}`);
+    values.push(profileData.name);
+  }
+  if (profileData.faculty !== undefined) {
+    fields.push(`faculty = $${paramIndex++}`);
+    values.push(profileData.faculty);
+  }
+  if (profileData.major !== undefined) {
+    fields.push(`major = $${paramIndex++}`);
+    values.push(profileData.major);
+  }
+  if (profileData.birth_date !== undefined) {
+    fields.push(`birth_date = $${paramIndex++}`);
+    values.push(profileData.birth_date);
+  }
+  if (profileData.year_level !== undefined) {
+    fields.push(`year_level = $${paramIndex++}`);
+    values.push(profileData.year_level);
+  }
+  if (profileData.phone !== undefined) {
+    fields.push(`phone = $${paramIndex++}`);
+    values.push(profileData.phone);
+  }
+
+  if (fields.length === 0) {
+    return await findById(user_id);
+  }
+
+  fields.push('updated_at = NOW()');
   
   const { rows } = await query(
-    `UPDATE users SET name = $2, updated_at = NOW()
+    `UPDATE users SET ${fields.join(', ')}
      WHERE id = $1::uuid
-     RETURNING id, email, role, name, created_at, updated_at`,
-    [user_id, name]
+     RETURNING id, email, role, name, status, student_id, faculty, major, birth_date, year_level, phone, created_at, updated_at`,
+    values
   );
   return rows[0] || null;
 }
@@ -251,6 +324,30 @@ async function updateUser(user_id, updates) {
     fields.push(`status = $${paramIndex++}`);
     values.push(updates.status);
   }
+  if (updates.student_id !== undefined) {
+    fields.push(`student_id = $${paramIndex++}`);
+    values.push(updates.student_id);
+  }
+  if (updates.faculty !== undefined) {
+    fields.push(`faculty = $${paramIndex++}`);
+    values.push(updates.faculty);
+  }
+  if (updates.major !== undefined) {
+    fields.push(`major = $${paramIndex++}`);
+    values.push(updates.major);
+  }
+  if (updates.birth_date !== undefined) {
+    fields.push(`birth_date = $${paramIndex++}`);
+    values.push(updates.birth_date);
+  }
+  if (updates.year_level !== undefined) {
+    fields.push(`year_level = $${paramIndex++}`);
+    values.push(updates.year_level);
+  }
+  if (updates.phone !== undefined) {
+    fields.push(`phone = $${paramIndex++}`);
+    values.push(updates.phone);
+  }
 
   if (fields.length === 0) {
     return await findById(user_id);
@@ -261,7 +358,7 @@ async function updateUser(user_id, updates) {
   const { rows } = await query(
     `UPDATE users SET ${fields.join(', ')}
      WHERE id = $1::uuid
-     RETURNING id, email, role, name, status, created_at, updated_at`,
+     RETURNING id, email, role, name, status, student_id, faculty, major, birth_date, year_level, phone, created_at, updated_at`,
     values
   );
   return rows[0] || null;
@@ -317,6 +414,7 @@ module.exports = {
   find,
   findById,
   existsByEmail,
+  existsByStudentId,
   create,
   findAll,
   updateRole,    

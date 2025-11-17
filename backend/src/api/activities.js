@@ -61,6 +61,7 @@ router.post(
   '/',
   requireAuth,
   authorize(['admin', 'president']),
+  upload.array('images', 5),
   async (req, res) => {
     try {
       const {
@@ -69,39 +70,81 @@ router.post(
         start_date,
         end_date,
         location,
-        max_participants,
-        club_id: reqClubId, // admin อาจส่งมากำหนดชมรม
+        capacity,
+        registration_start,
+        registration_end,
+        approval_mode,
+        club_id: reqClubId,
       } = req.body || {};
-      if (!name) return res.status(400).json({ message: 'name is required' });
 
-      // ผูก club_id:
-      // - admin: ใช้ค่าที่ส่งมา (ถ้าไม่ส่งมาก็เป็น null ได้)
-      // - president: กำหนดจากชมรมที่ตัวเองเป็นประธาน (ต้องมีและ 1 ชมรม)
+      // Validation
+      if (!name || !name.trim()) {
+        return res.status(400).json({ message: 'ชื่อกิจกรรมต้องไม่ว่างเปล่า' });
+      }
+      if (!description || !description.trim()) {
+        return res.status(400).json({ message: 'รายละเอียดต้องไม่ว่างเปล่า' });
+      }
+      if (!location || !location.trim()) {
+        return res.status(400).json({ message: 'สถานที่ต้องไม่ว่างเปล่า' });
+      }
+      if (!start_date) {
+        return res.status(400).json({ message: 'วันที่เริ่มต้องไม่ว่างเปล่า' });
+      }
+      if (!end_date) {
+        return res.status(400).json({ message: 'วันที่สิ้นสุดต้องไม่ว่างเปล่า' });
+      }
+      if (!registration_start) {
+        return res.status(400).json({ message: 'วันเปิดรับสมัครต้องไม่ว่างเปล่า' });
+      }
+      if (!registration_end) {
+        return res.status(400).json({ message: 'วันปิดรับสมัครต้องไม่ว่างเปล่า' });
+      }
+      if (!capacity || capacity < 1) {
+        return res.status(400).json({ message: 'จำนวนที่รับต้องมากกว่า 0' });
+      }
+
+      // ผูก club_id - บังคับต้องมี
       let club_id = null;
       if (isAdmin(req.user)) {
-        club_id = reqClubId ?? null;
+        club_id = reqClubId ? parseInt(reqClubId, 10) : null;
       } else if (isPresident(req.user)) {
         const clubIds = await ClubMembers.findClubIdsOfPresident(req.user.id);
         if (!clubIds || clubIds.length === 0) {
           return res.status(400).json({ message: 'President has no club assigned' });
         }
-        // สมมติว่าหนึ่งประธานต่อหนึ่งชมรมตาม requirement
         club_id = clubIds[0];
       }
 
+      // ตรวจสอบว่ามี club_id
+      if (!club_id) {
+        return res.status(400).json({ message: 'กรุณาเลือกชมรม' });
+      }
+
       const activity = await Activity.create({
-        name,
-        description: description ?? null,
-        start_date: start_date ?? null,
-        end_date: end_date ?? null,
-        location: location ?? null,
-        max_participants: max_participants ?? 10,
+        name: name.trim(),
+        description: description.trim(),
+        start_date,
+        end_date,
+        location: location.trim(),
+        max_participants: parseInt(capacity, 10),
         created_by: req.user.id,
         status: 'pending',
         club_id,
+        registration_start_date: registration_start,
+        registration_end_date: registration_end,
+        approval_mode: approval_mode || 'manual',
       });
 
-      return res.status(201).json(activity);
+      // Upload images if provided
+      const files = req.files || [];
+      if (files.length > 0) {
+        const urls = files.map((f) => `/uploads/${f.filename}`);
+        await Images.addMany(activity.id, urls);
+      }
+
+      // Fetch complete activity with images
+      const completeActivity = await Activity.findById(activity.id);
+      return res.status(201).json(completeActivity);
     } catch (error) {
       console.error('POST /api/activities error:', error);
       return res.status(500).json({ message: 'Failed to create activity' });
@@ -360,7 +403,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
 // =======================
 // Update / Delete
 // =======================
-router.put('/:id', requireAuth, authorize(['admin', 'president']), async (req, res) => {
+router.put('/:id', requireAuth, authorize(['admin', 'president']), upload.array('images', 5), async (req, res) => {
   try {
     const id = toInt(req.params.id);
     if (!id) return res.status(400).json({ message: 'Invalid id' });
@@ -369,9 +412,79 @@ router.put('/:id', requireAuth, authorize(['admin', 'president']), async (req, r
     const { error } = await loadAndAuthorizeManage(id, req.user);
     if (error) return res.status(error.code).json({ message: error.message });
 
-    const updated = await Activity.update(id, req.body, req.user);
+    const {
+      name,
+      description,
+      start_date,
+      end_date,
+      location,
+      capacity,
+      registration_start,
+      registration_end,
+      approval_mode,
+      club_id,
+      images_to_delete,
+    } = req.body || {};
+
+    // Validation
+    if (name !== undefined && (!name || !name.trim())) {
+      return res.status(400).json({ message: 'ชื่อกิจกรรมต้องไม่ว่างเปล่า' });
+    }
+    if (description !== undefined && (!description || !description.trim())) {
+      return res.status(400).json({ message: 'รายละเอียดต้องไม่ว่างเปล่า' });
+    }
+    if (location !== undefined && (!location || !location.trim())) {
+      return res.status(400).json({ message: 'สถานที่ต้องไม่ว่างเปล่า' });
+    }
+    if (capacity !== undefined && (capacity < 1)) {
+      return res.status(400).json({ message: 'จำนวนที่รับต้องมากกว่า 0' });
+    }
+
+    // Prepare update data
+    const updateData = {};
+    if (name !== undefined) updateData.name = name.trim();
+    if (description !== undefined) updateData.description = description.trim();
+    if (location !== undefined) updateData.location = location.trim();
+    if (start_date !== undefined) updateData.start_date = start_date;
+    if (end_date !== undefined) updateData.end_date = end_date;
+    if (capacity !== undefined) updateData.max_participants = parseInt(capacity, 10);
+    if (registration_start !== undefined) updateData.registration_start_date = registration_start;
+    if (registration_end !== undefined) updateData.registration_end_date = registration_end;
+    if (approval_mode !== undefined) updateData.approval_mode = approval_mode;
+    if (club_id !== undefined) updateData.club_id = club_id;
+
+    const updated = await Activity.update(id, updateData, req.user);
     if (!updated) return res.status(404).json({ message: 'Activity not found' });
-    return res.json(updated);
+
+    // Handle image deletion
+    if (images_to_delete) {
+      try {
+        const imagesToDelete = JSON.parse(images_to_delete);
+        if (Array.isArray(imagesToDelete)) {
+          for (const imageUrl of imagesToDelete) {
+            // Extract image ID from URL or delete by URL
+            const existingImages = await Images.listByActivity(id);
+            const imageToDelete = existingImages.find(img => img.image_url === imageUrl);
+            if (imageToDelete) {
+              await Images.remove(imageToDelete.id);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error deleting images:', err);
+      }
+    }
+
+    // Handle new image uploads
+    const files = req.files || [];
+    if (files.length > 0) {
+      const urls = files.map((f) => `/uploads/${f.filename}`);
+      await Images.addMany(id, urls);
+    }
+
+    // Fetch complete updated activity
+    const completeActivity = await Activity.findById(id);
+    return res.json(completeActivity);
   } catch (error) {
     console.error('PUT /api/activities/:id error:', error);
     return res.status(500).json({ message: 'Failed to update activity' });

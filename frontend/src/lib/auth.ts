@@ -45,6 +45,14 @@ export const authOptions: NextAuthOptions = {
           role: (user as any).role,
           name: (user as any).name,
           club_id: (user as any).club_id,
+          student_id: (user as any).student_id,
+          faculty: (user as any).faculty,
+          major: (user as any).major,
+          birth_date: (user as any).birth_date,
+          year_level: (user as any).year_level,
+          phone: (user as any).phone,
+          status: (user as any).status,
+          created_at: (user as any).created_at,
         };
       }
       return token as any;

@@ -1,5 +1,6 @@
 import "./globals.css";
 import { Kanit } from "next/font/google";
+import { Toaster } from "sonner";
 
 export const metadata = {
   title: "Volunteer",
@@ -20,6 +21,7 @@ export default function RootLayout({
     <html lang="th">
       <body className={`${kanit.className} text-gray-900`}>
         {children}
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );
