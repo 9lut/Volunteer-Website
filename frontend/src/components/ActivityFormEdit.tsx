@@ -29,7 +29,7 @@ const activityFormSchema = z.object({
   registration_start: z.string().min(1, "กรุณาเลือกวันเวลาเปิดรับสมัคร"),
   registration_end: z.string().min(1, "กรุณาเลือกวันเวลาปิดรับสมัคร"),
   approval_mode: z.enum(["auto", "manual"]),
-  club_id: z.number().min(1, "กรุณาเลือกชมรม"),
+  club_id: z.string().min(1, "กรุณาเลือกชมรม"), // UUID string from database
 });
 
 type ActivityFormData = z.infer<typeof activityFormSchema>;
@@ -140,6 +140,7 @@ export default function ActivityFormEdit({ activityId, mode }: ActivityFormEditP
       setSelectedApprovalMode(activity.approval_mode || "manual");
 
       if (activity.club_id) {
+        // club_id is UUID string from database
         setValue("club_id", activity.club_id);
       }
 
@@ -198,8 +199,9 @@ export default function ActivityFormEdit({ activityId, mode }: ActivityFormEditP
       formData.append("registration_end", data.registration_end);
       formData.append("approval_mode", data.approval_mode);
 
+      // club_id is UUID string
       if (data.club_id) {
-        formData.append("club_id", data.club_id.toString());
+        formData.append("club_id", data.club_id);
       }
 
       newImages.forEach((image) => {
@@ -317,7 +319,6 @@ export default function ActivityFormEdit({ activityId, mode }: ActivityFormEditP
                   <select
                     id="club_id"
                     {...register("club_id", { 
-                      valueAsNumber: true,
                       required: "กรุณาเลือกชมรม"
                     })}
                     className="mt-2 h-12 w-full rounded-md border border-gray-300 bg-white px-3 text-base dark:border-gray-600 dark:bg-gray-800"
