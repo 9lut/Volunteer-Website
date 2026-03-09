@@ -103,15 +103,17 @@ router.post(
         return res.status(400).json({ message: 'จำนวนที่รับต้องมากกว่า 0' });
       }
 
-      // ผูก club_id - บังคับต้องมี
+      // ผูก club_id - บังคับต้องมี (ใช้ UUID string ตรง ๆ ไม่แปลงเป็นตัวเลข)
       let club_id = null;
       if (isAdmin(req.user)) {
-        club_id = reqClubId ? parseInt(reqClubId, 10) : null;
+        // admin สามารถเลือกชมรมจาก body ได้โดยตรง (ต้องเป็น UUID string)
+        club_id = reqClubId && reqClubId.trim() ? reqClubId.trim() : null;
       } else if (isPresident(req.user)) {
         const clubIds = await ClubMembers.findClubIdsOfPresident(req.user.id);
         if (!clubIds || clubIds.length === 0) {
           return res.status(400).json({ message: 'President has no club assigned' });
         }
+        // clubIds จาก persistence ควรเป็น UUID string อยู่แล้ว
         club_id = clubIds[0];
       }
 
