@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Upload, X, Calendar, Users, MapPin, FileText, Image as ImageIcon, Zap, CheckCircle2 } from "lucide-react";
 
 interface Club {
-  id: number;
+  id: string;
   name: string;
 }
 
@@ -29,7 +29,7 @@ const activityFormSchema = z.object({
   registration_start: z.string().min(1, "กรุณาเลือกวันเวลาเปิดรับสมัคร"),
   registration_end: z.string().min(1, "กรุณาเลือกวันเวลาปิดรับสมัคร"),
   approval_mode: z.enum(["auto", "manual"]),
-  club_id: z.string().min(1, "กรุณาเลือกชมรม"), // UUID string from database
+  club_id: z.string().min(1, "กรุณาเลือกชมรม"), 
 });
 
 type ActivityFormData = z.infer<typeof activityFormSchema>;
@@ -98,7 +98,12 @@ export default function ActivityFormEdit({ activityId, mode }: ActivityFormEditP
   const fetchClubs = async () => {
     try {
       const response = await axios.get("/api/clubs");
-      setClubs(response.data);
+      // ให้แน่ใจว่า id ถูกแปลงเป็น string (UUID)
+      const clubsData: Club[] = response.data.map((c: any) => ({
+        id: String(c.id),
+        name: c.name,
+      }));
+      setClubs(clubsData);
     } catch (error) {
       toast.error("ไม่สามารถโหลดข้อมูลชมรมได้");
     } finally {
@@ -318,8 +323,8 @@ export default function ActivityFormEdit({ activityId, mode }: ActivityFormEditP
                   </Label>
                   <select
                     id="club_id"
-                    {...register("club_id", { 
-                      required: "กรุณาเลือกชมรม"
+                    {...register("club_id", {
+                      required: "กรุณาเลือกชมรม",
                     })}
                     className="mt-2 h-12 w-full rounded-md border border-gray-300 bg-white px-3 text-base dark:border-gray-600 dark:bg-gray-800"
                     disabled={isLoading || loadingClubs}
@@ -331,7 +336,9 @@ export default function ActivityFormEdit({ activityId, mode }: ActivityFormEditP
                       </option>
                     ))}
                   </select>
-                  {errors.club_id && <p className="text-red-500 text-sm mt-1">{errors.club_id.message}</p>}
+                  {errors.club_id && (
+                    <p className="text-red-500 text-sm mt-1">{errors.club_id.message}</p>
+                  )}
                 </div>
               </div>
             </div>
